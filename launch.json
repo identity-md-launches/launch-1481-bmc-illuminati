@@ -1,0 +1,13 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "BMCIlluminatiPass",
+      "constructorArgs": [
+        "$owner",
+        "0x38224239f2BDae357D47cb864BC533d7f72dF961"
+      ]
+    }
+  ],
+  "notes": "BMCIlluminatiPass is the accepted block-derived Mystery design, not the deterministic development branch. Constructor arguments are the explicit owner and existing Ethereum Mainnet BMC ERC-20 address; the BMC address is not an NFT deployment address. StandardArt is an internal, inlined library and needs no separate deployment. The collection has 500 NFTs: sequential Genesis IDs 1-40 cost 1,000,000 BMC each, followed by 460 Mystery mints costing 350,000 BMC each with 37 Genesis and 423 Standard outcomes without replacement. Each mint calls BMC burnFrom and verifies exact payer balance and total supply reductions. Genesis metadata uses the fixed supplied IPFS CID and genesis-01.png through genesis-77.png; Standard SVG artwork is on-chain. Ownership grants no special mint, price, metadata, pause, withdrawal or upgrade privileges. Block-derived randomness is manipulable by validators/builders and buyers, including receiver contracts reverting unwanted outcomes; unique inventory does not guarantee fair allocation. This manifest neither deploys contracts nor authorizes public minting. Keep the website in PRE_LAUNCH with no approval or mint transactions until the finalized source repository/revision and actual Mainnet NFT address/ABI are confirmed, deployed bytecode matches the reviewed build, security findings are addressed, deployed minting/burning is validated, and explicit public-mint authorization is recorded. The contract has no on-chain launch gate: direct mint calls are possible immediately upon deployment, so deployment must be coordinated with authorization. No post-deployment initialization, funding, token deployment or pool is required."
+}
