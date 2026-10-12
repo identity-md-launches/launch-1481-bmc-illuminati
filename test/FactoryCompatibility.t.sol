@@ -29,9 +29,19 @@ contract FactoryCompatibilityTest is Test {
         assertLe(runtime.length, 24_576);
         for (uint256 i; i < runtime.length; ++i) {
             uint8 opcode = uint8(runtime[i]);
-            if (opcode >= 0x60 && opcode <= 0x7f) { i += opcode - 0x5f; continue; }
+            if (opcode >= 0x60 && opcode <= 0x7f) {
+                i += opcode - 0x5f;
+                continue;
+            }
             assertTrue(opcode != 0xf4 && opcode != 0xf2 && opcode != 0xff, "forbidden opcode");
         }
+        // Launch gate on chain 1: closed from construction until the explicit owner opens it once.
+        assertFalse(pass.mintingOpen());
+        vm.expectRevert(BMCIlluminatiPass.MintingNotOpen.selector);
+        pass.mintGenesis();
+        vm.prank(owner);
+        pass.openMinting();
+        assertTrue(pass.mintingOpen());
         vm.expectRevert(BMCIlluminatiPass.BMCTokenUnavailable.selector);
         pass.mintGenesis();
     }

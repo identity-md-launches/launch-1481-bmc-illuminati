@@ -84,7 +84,7 @@
       try {
         const saved = JSON.parse(this.storage?.getItem(this.key) || "null");
         if (saved && isHash(saved.hash) && isAddress(saved.account) &&
-            same(saved.pass, config.PASS_ADDRESS) && ["approval", "mint"].includes(saved.stage)) this.state.pending = saved;
+            same(saved.pass, config.PASS_ADDRESS) && ["approval", "mint", "reveal"].includes(saved.stage)) this.state.pending = saved;
       } catch { /* Corrupt or disabled storage does not create an executable transaction. */ }
     }
     get live() { return configuredLive(this.config, this.build); }
@@ -200,18 +200,19 @@
     async stats(session) {
       // Pin related inventory reads to one block so another buyer cannot produce an inconsistent snapshot.
       const block = await session.provider.request({ method: "eth_blockNumber" });
-      const signatures = ["totalMinted()", "remainingSupply()", "totalBurned()", "currentPrice()", "remainingMysteryGenesis()", "remainingMysteryStandard()"];
+      const signatures = ["totalMinted()", "remainingSupply()", "totalBurned()", "currentPrice()", "remainingMysteryGenesis()", "remainingMysteryStandard()", "pendingReveals()", "mintingOpen()"];
       const results = await Promise.all(signatures.map(sig => session.provider.request({ method: "eth_call", params: [{
         to: this.config.PASS_ADDRESS, data: calldata(this.build, sig),
       }, block] })));
-      const [minted, remaining, burned, price, genesis, standard] = results.map(uint);
+      const [minted, remaining, burned, price, genesis, standard, pending, openWord] = results.map(uint);
       const mysterySold = minted > 40n ? minted - 40n : 0n;
       const expectedBurn = (minted < 40n ? minted : 40n) * GENESIS + mysterySold * MYSTERY;
       if (minted > 500n || remaining !== 500n - minted || burned !== expectedBurn || genesis > 37n || standard > 423n ||
-          genesis + standard !== 460n - mysterySold || price !== (minted >= 500n ? 0n : minted < 40n ? GENESIS : MYSTERY)) {
+          pending > mysterySold || genesis + standard !== 460n - (mysterySold - pending) || openWord > 1n ||
+          price !== (minted >= 500n ? 0n : minted < 40n ? GENESIS : MYSTERY)) {
         throw new Error("Inconsistent NFT contract state. Refresh before minting.");
       }
-      return { minted, remaining, burned, price, genesis, standard };
+      return { minted, remaining, burned, price, genesis, standard, pending, open: openWord === 1n };
     }
     async refresh() {
       this.state.ready = false;
@@ -235,6 +236,7 @@
     async preflight(session, kind) {
       await this.verifyContract(session);
       const [stats, balances] = await Promise.all([this.stats(session), this.balances(session, true)]);
+      if (!stats.open) throw new Error("BMC PASS — Coming Soon. The NFT contract owner has not opened minting yet.");
       if (stats.minted === 500n) throw new Error("All 500 passes have been minted.");
       if ((kind === "genesis") !== (stats.minted < 40n)) throw new Error("The mint phase changed. Refresh and review the current phase.");
       if (balances.balance < stats.price) throw new Error("Insufficient BMC balance for this mint.");
@@ -250,7 +252,7 @@
       } catch { /* The in-memory lock remains if browser storage is unavailable. */ }
       this.emit();
     }
-    async send(session, target, data, stage) {
+    async send(session, target, data, stage, tokenId) {
       await this.assertSession(session, true);
       // Simulate just before opening the wallet. Reverts stop here without a paid transaction.
       await session.provider.request({ method: "eth_call", params: [{ from: session.account, to: target, data }, "latest"] });
@@ -259,10 +261,10 @@
       // for the more expensive branch; the wallet still displays/controls the transaction fee.
       const gas = "0x" + (estimated + estimated / 5n + 50000n).toString(16);
       await this.assertSession(session, true);
-      this.emit(stage === "approval" ? "Approve the exact mint price in your wallet." : "Confirm the mint in your wallet. BMC will be permanently burned.");
+      this.emit(stage === "approval" ? "Approve the exact mint price in your wallet." : stage === "reveal" ? "Confirm the reveal in your wallet. It settles pending passes in mint order and burns no BMC." : "Confirm the mint in your wallet. BMC will be permanently burned.");
       const hash = await session.provider.request({ method: "eth_sendTransaction", params: [{ from: session.account, to: target, data, gas, chainId: "0x1", value: "0x0" }] });
       if (!isHash(hash)) throw new Error("Wallet returned an invalid transaction hash. Check wallet activity before retrying.");
-      const pending = { hash, stage, account: session.account, pass: this.config.PASS_ADDRESS };
+      const pending = { hash, stage, account: session.account, pass: this.config.PASS_ADDRESS, ...(tokenId !== undefined ? { tokenId: String(tokenId) } : {}) };
       this.savePending(pending);
       this.onTransaction({ ...pending, status: "pending" });
       return pending;
@@ -290,10 +292,39 @@
       for (let i = 0; i < this.maxPolls; ++i) {
         const receipt = await this.receipt(session, pending);
         if (receipt) return receipt;
-        this.emit(`${pending.stage === "approval" ? "Approval" : "Mint"} pending — waiting for two confirmations. Do not submit it again.`);
+        this.emit(`${pending.stage === "approval" ? "Approval" : pending.stage === "reveal" ? "Reveal" : "Mint"} pending — waiting for two confirmations. Do not submit it again.`);
         await this.sleep(this.pollMs);
       }
       throw new Error("Transaction is still pending or was replaced. Check Etherscan or your wallet, then use Check pending transaction. No mint was resubmitted.");
+    }
+    async waitForBlock(session, target) {
+      for (let i = 0; i < this.maxPolls; ++i) {
+        await this.assertSession(session);
+        if (BigInt(await session.provider.request({ method: "eth_blockNumber" })) >= target) return;
+        this.emit("Waiting for the reveal block to be finalized…");
+        await this.sleep(this.pollMs);
+      }
+      throw new Error("The reveal block is not available yet. Use Reveal pending passes once Ethereum advances; your mint is already final.");
+    }
+    async revealPending(session, tokenId, mintBlock) {
+      // Settle in mint order; everything ahead of this token is settled by the same call.
+      if (mintBlock !== undefined) await this.waitForBlock(session, mintBlock + 2n);
+      const count = uint(await this.nft(session, "pendingReveals()"));
+      if (count === 0n) return null;
+      const pending = await this.send(session, this.config.PASS_ADDRESS, calldata(this.build, "reveal(uint256)", [count > 50n ? 50n : count]), "reveal", tokenId);
+      await this.wait(session, pending);
+      if (tokenId !== undefined) await this.showToken(session, tokenId, this.state.minted?.hash);
+      return pending;
+    }
+    async showToken(session, id, hash) {
+      this.state.minted = { id, hash, metadata: null, pending: false };
+      try {
+        const tier = uint(await this.nft(session, "tierOf(uint256)", [id]));
+        this.state.minted.pending = tier === 0n;
+        this.state.minted.metadata = await this.metadata(session, id);
+        this.emit(tier === 0n ? `Pass #${id} is minted and awaiting its reveal. The outcome settles from the next block's hash.` : `BMC Illuminati Pass #${id} revealed.`);
+      } catch { this.emit(`Pass #${id} minted. Artwork could not be loaded; use the transaction link or look up this token again.`); }
+      this.emit();
     }
     async mintedFromReceipt(session, receipt) {
       const log = receipt.logs?.find(l => same(l.address, this.config.PASS_ADDRESS) &&
@@ -302,11 +333,9 @@
       if (!log) throw new Error("Mint confirmed, but no matching NFT mint event was found. Check Etherscan before any further action.");
       const id = uint(log.topics[3]);
       if (id < 1n || id > 500n) throw new Error("Unexpected minted token ID.");
-      this.state.minted = { id, hash: receipt.transactionHash, metadata: null };
       this.emit(`BMC Illuminati Pass #${id} minted. Your BMC was permanently burned.`);
-      try { this.state.minted.metadata = await this.metadata(session, id); }
-      catch { this.emit(`Pass #${id} minted. Artwork could not be loaded; use the transaction link or look up this token again.`); }
-      this.emit();
+      await this.showToken(session, id, receipt.transactionHash);
+      return id;
     }
     async metadata(session, id) {
       await this.assertSession(session, true);
@@ -345,7 +374,20 @@
         }
         const pending = await this.send(session, this.config.PASS_ADDRESS, calldata(this.build, kind === "genesis" ? "mintGenesis()" : "mintMystery()"), "mint");
         const receipt = await this.wait(session, pending);
-        await this.mintedFromReceipt(session, receipt);
+        const id = await this.mintedFromReceipt(session, receipt);
+        // Mystery: the burn is final; the outcome is settled by a separate reveal from the next block's hash.
+        if (kind === "mystery") await this.revealPending(session, id, BigInt(receipt.blockNumber));
+      } catch (e) { this.emit(friendlyError(e)); throw e; }
+      finally { this.state.busy = false; await this.refresh(); this.emit(); }
+    }
+    async reveal() {
+      if (!this.live) throw new Error("BMC PASS — Coming Soon. Public minting is disabled.");
+      if (this.state.busy || this.state.pending) throw new Error("A transaction is already in progress. Check it before starting another.");
+      const session = this.session(); this.state.busy = true; this.emit();
+      try {
+        await this.verifyContract(session);
+        const pending = await this.revealPending(session);
+        if (!pending) this.emit("No passes are waiting for a reveal.");
       } catch (e) { this.emit(friendlyError(e)); throw e; }
       finally { this.state.busy = false; await this.refresh(); this.emit(); }
     }
@@ -360,6 +402,7 @@
         const receipt = await this.receipt(session, pending);
         if (!receipt) { this.emit("Still pending, replaced, or awaiting two confirmations. Check Etherscan and your wallet; no new transaction was sent."); return; }
         if (pending.stage === "mint") await this.mintedFromReceipt(session, receipt);
+        else if (pending.stage === "reveal") { if (/^[0-9]+$/.test(pending.tokenId || "")) await this.showToken(session, BigInt(pending.tokenId), this.state.minted?.hash); else this.emit("Reveal confirmed."); }
         else this.emit("Approval confirmed. Review the current phase and press Mint when ready.");
       } finally { this.state.busy = false; await this.refresh(); this.emit(); }
     }

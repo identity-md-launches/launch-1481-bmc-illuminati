@@ -21,6 +21,19 @@ globalThis.BMC_PASS_BUILD = {
     },
     {
       "type": "function",
+      "name": "BLOCK_HISTORY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "BMC",
       "inputs": [],
       "outputs": [
@@ -126,6 +139,19 @@ globalThis.BMC_PASS_BUILD = {
     {
       "type": "function",
       "name": "MYSTERY_SUPPLY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "REVEAL_WINDOW",
       "inputs": [],
       "outputs": [
         {
@@ -328,6 +354,19 @@ globalThis.BMC_PASS_BUILD = {
     },
     {
       "type": "function",
+      "name": "mintingOpen",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "mysteryGenesisRevealed",
       "inputs": [],
       "outputs": [
@@ -351,6 +390,26 @@ globalThis.BMC_PASS_BUILD = {
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "nextRevealId",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "openMinting",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     },
     {
       "type": "function",
@@ -395,7 +454,7 @@ globalThis.BMC_PASS_BUILD = {
           "internalType": "uint256"
         }
       ],
-      "stateMutability": "pure"
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -455,6 +514,63 @@ globalThis.BMC_PASS_BUILD = {
       "inputs": [],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "reveal",
+      "inputs": [
+        {
+          "name": "maxCount",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "revealed",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "revealBlockOf",
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "revealDeadlineOf",
+      "inputs": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -804,6 +920,12 @@ globalThis.BMC_PASS_BUILD = {
     },
     {
       "type": "event",
+      "name": "MintingOpened",
+      "inputs": [],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "MysteryMinted",
       "inputs": [
         {
@@ -820,6 +942,12 @@ globalThis.BMC_PASS_BUILD = {
         },
         {
           "name": "bmcBurned",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "revealBlock",
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
@@ -867,6 +995,12 @@ globalThis.BMC_PASS_BUILD = {
           "type": "uint16",
           "indexed": false,
           "internalType": "uint16"
+        },
+        {
+          "name": "forced",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
         }
       ],
       "anonymous": false
@@ -1032,6 +1166,16 @@ globalThis.BMC_PASS_BUILD = {
     },
     {
       "type": "error",
+      "name": "MintingAlreadyOpen",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "MintingNotOpen",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NonexistentToken",
       "inputs": [
         {
@@ -1085,8 +1229,9 @@ globalThis.BMC_PASS_BUILD = {
       ]
     }
   ],
-  "abiSha256": "9153431147bd0d975f51683e19030f20d163e0ad04d46bfca69ba7c5e277bd5f",
+  "abiSha256": "f8ef521233c556d40a71a82c7c4fe843523cc6f6303a9093efcd139b929c7a4f",
   "selectors": {
+    "BLOCK_HISTORY()": "0f93f401",
     "BMC()": "fdfac8e5",
     "BMC_DECIMALS()": "50245dd4",
     "GENESIS_PHASE_SUPPLY()": "75deaede",
@@ -1096,6 +1241,7 @@ globalThis.BMC_PASS_BUILD = {
     "MYSTERY_GENESIS()": "4d3d514b",
     "MYSTERY_PRICE()": "6661f9d5",
     "MYSTERY_SUPPLY()": "aba49395",
+    "REVEAL_WINDOW()": "17e931cf",
     "TOTAL_GENESIS()": "d4f149dc",
     "TOTAL_STANDARD()": "5708e711",
     "approve(address,uint256)": "095ea7b3",
@@ -1108,8 +1254,11 @@ globalThis.BMC_PASS_BUILD = {
     "isApprovedForAll(address,address)": "e985e9c5",
     "mintGenesis()": "78c3a692",
     "mintMystery()": "9aa0c9be",
+    "mintingOpen()": "8f4bb497",
     "mysteryGenesisRevealed()": "d978bf22",
     "name()": "06fdde03",
+    "nextRevealId()": "41515a2c",
+    "openMinting()": "6ba9fd38",
     "owner()": "8da5cb5b",
     "ownerOf(uint256)": "6352211e",
     "pendingReveals()": "187b0cd6",
@@ -1118,6 +1267,9 @@ globalThis.BMC_PASS_BUILD = {
     "remainingMysteryStandard()": "cc0e6cb6",
     "remainingSupply()": "da0239a6",
     "renounceOwnership()": "715018a6",
+    "reveal(uint256)": "c2ca0ac5",
+    "revealBlockOf(uint256)": "90425f44",
+    "revealDeadlineOf(uint256)": "02ec33b6",
     "revealStatusOf(uint256)": "ab010df8",
     "revealedCount()": "bbd78e93",
     "safeTransferFrom(address,address,uint256)": "42842e0e",

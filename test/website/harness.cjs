@@ -38,7 +38,7 @@ class Provider extends EventEmitter {
   constructor() {
     super(); this.calls=[]; this.sent=[]; this.account=ACCOUNT; this.chain='0x1'; this.code=CODE;
     this.balance=API.GENESIS * 1000n; this.allowance=0n; this.minted=0n;
-    this.remainingGenesis=37n; this.remainingStandard=423n; this.decimals=18n;
+    this.remainingGenesis=37n; this.remainingStandard=423n; this.decimals=18n; this.pendingCount=0n; this.open=true;
     this.receipts=new Map(); this.pending=false; this.reject=null; this.revert=null; this.metadata=null;
     this.onReceipt=null; this.beforeSend=null; this.onCall=null;
   }
@@ -58,7 +58,7 @@ class Provider extends EventEmitter {
     if(method==='eth_getBlockByNumber') return {hash:this.reorg?'0x'+'cd'.repeat(32):HASH};
     if(method==='eth_call') return this.read(params[0]);
     if(method==='eth_sendTransaction') {
-      const tx=params[0], stage=tx.to.toLowerCase()===API.BMC?'approval':'mint';
+      const tx=params[0], stage=tx.to.toLowerCase()===API.BMC?'approval':tx.data.startsWith('0x'+BUILD.selectors['reveal(uint256)'])?'reveal':'mint';
       if(this.beforeSend) this.beforeSend(stage);
       if(this.reject===stage) throw Object.assign(new Error('User rejected'),{code:4001});
       const hash=word(this.sent.length+1); this.sent.push({...tx,hash,stage}); return hash;
@@ -75,11 +75,12 @@ class Provider extends EventEmitter {
           if(tx.stage==='mint') {
             const price=this.price; ++this.minted;
             this.allowance-=price;this.balance-=price;
-            if(this.minted>40n)--this.remainingStandard;
+            if(this.minted>40n)++this.pendingCount;
             logs=[{address:PASS,topics:['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',word(0),word(BigInt(tx.from)),word(this.minted)],data:'0x'}];
           }
+          if(tx.stage==='reveal'){let n=BigInt('0x'+tx.data.slice(10));if(n>this.pendingCount)n=this.pendingCount;this.pendingCount-=n;this.remainingStandard-=n;}
         }
-        const receipt={transactionHash:tx.hash,from:tx.from,to:tx.to,blockNumber:'0xf',blockHash:HASH,status,logs};
+        const receipt={transactionHash:tx.hash,from:tx.from,to:tx.to,blockNumber:'0xe',blockHash:HASH,status,logs};
         this.receipts.set(tx.hash,receipt);
         if(this.onReceipt) this.onReceipt(tx.stage,receipt);
       }
@@ -99,7 +100,8 @@ class Provider extends EventEmitter {
       const values={'BMC()':BigInt(API.BMC),'MAX_SUPPLY()':500n,'GENESIS_PRICE()':API.GENESIS,'MYSTERY_PRICE()':API.MYSTERY,
         'supportsInterface(bytes4)':1n,'totalMinted()':this.minted,'remainingSupply()':500n-this.minted,
         'totalBurned()':(this.minted<40n?this.minted:40n)*API.GENESIS+(this.minted>40n?this.minted-40n:0n)*API.MYSTERY,
-        'currentPrice()':this.price,'remainingMysteryGenesis()':this.remainingGenesis,'remainingMysteryStandard()':this.remainingStandard};
+        'currentPrice()':this.price,'remainingMysteryGenesis()':this.remainingGenesis,'remainingMysteryStandard()':this.remainingStandard,
+        'pendingReveals()':this.pendingCount,'mintingOpen()':this.open?1n:0n,'tierOf(uint256)':this.pendingCount>0n?0n:3n,'reveal(uint256)':this.pendingCount};
       if(sig in values) return word(values[sig]);
       if(sig==='genesisImagesCID()') return str(API.CID);
       if(sig==='name()') return str('BMC Illuminati Pass');

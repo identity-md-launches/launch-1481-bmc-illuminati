@@ -57,6 +57,7 @@
         <div class="stat"><span>Current mint price</span><strong id="price">Not live</strong></div>
         <div class="stat"><span>NFTs minted / maximum</span><strong id="supply">— / 500</strong></div>
         <div class="stat"><span>Remaining NFT supply</span><strong id="remaining">—</strong></div>
+        <div class="stat"><span>Mystery passes awaiting reveal</span><strong id="pending-reveals">—</strong></div>
         <div class="stat"><span>BMC permanently burned by this NFT contract</span><strong id="burned">—</strong></div>
         <div class="stat"><span>Your BMC balance</span><strong id="balance">Connect wallet</strong></div>
         <div class="stat"><span>Your BMC allowance to this NFT contract</span><strong id="allowance">Not available</strong></div>
@@ -77,7 +78,7 @@
       <span class="eyebrow">02 · MYSTERY PHASE</span>
       <h2>Reveal your place</h2>
       <p class="mint-price">350,000 <span>BMC / mint</span></p>
-      <p>Token IDs 41–500 draw from 37 additional Genesis and 423 Standard outcomes, without replacement. The outcome is assigned during minting.</p>
+      <p>Token IDs 41–500 draw from 37 additional Genesis and 423 Standard outcomes, without replacement. Mystery opens only after all 40 Genesis passes are sold. The mint burns your BMC and issues an unrevealed pass; its outcome is settled afterwards, in mint order, from the hash of the block after the mint block. Nothing in the mint transaction can see or reject the result.</p>
       <label class="risk-consent"><input id="risk-accepted" type="checkbox"> I understand that block-derived randomness can be manipulated and does not guarantee a fair allocation.</label>
       <button id="mint-mystery" class="btn" type="button" disabled>Mint Mystery</button>
       <p class="hint" id="odds">Initial pool: 37 Genesis and 423 Standard. Inventory uniqueness is not a fairness guarantee.</p>
@@ -85,14 +86,15 @@
   </section>
   <aside class="risk card" aria-labelledby="risk-title">
     <h2 id="risk-title">Understand Mystery mint risk</h2>
-    <p>Mystery uses on-chain block-derived randomness, <strong>not Chainlink VRF</strong>. It is <strong>not cryptographically manipulation-resistant</strong>. Validators and block builders can influence transaction inclusion and ordering. Buyers can simulate outcomes, and smart-contract buyers can revert unwanted results. These actions can favor some buyers over others.</p>
-    <p>Unique outcomes without replacement only ensures that artwork is not assigned twice. This is not guaranteed fairness or tamper-proof randomness. BMC burns are permanent; no refunds are provided by the NFT contract.</p>
+    <p>Mystery uses on-chain block-derived randomness, <strong>not Chainlink VRF</strong>. It is <strong>not cryptographically manipulation-resistant</strong>. Each pass is settled from the hash of the Ethereum block after its mint block, so the proposer of that block can bias the result, and validators and block builders can influence transaction inclusion and ordering. Because the burn is final before that hash exists, buyers and smart-contract buyers cannot preview, pick or revert an outcome; a reverted reveal changes nothing.</p>
+    <p>Reveals are open to anyone and happen in mint order; this page sends one for you after your mint. The reveal hash stays readable on-chain for about 27 hours (8,191 blocks). If no one reveals a pass in that time it settles as a Standard pass, so delaying a reveal never helps. Unique outcomes without replacement only ensures that artwork is not assigned twice. This is not guaranteed fairness or tamper-proof randomness. BMC burns are permanent; no refunds are provided by the NFT contract.</p>
   </aside>
   <section class="card" aria-labelledby="status-title">
     <h2 id="status-title">Transactions &amp; your NFT</h2>
-    <p class="hint">When live: check balance and allowance → approve the exact price if needed → wait for approval → confirm mint → wait for confirmation. Each step may require ETH for gas.</p>
+    <p class="hint">When live: check balance and allowance → approve the exact price if needed → wait for approval → confirm mint → wait for confirmation → (Mystery only) confirm the reveal once the next block is final. Each step may require ETH for gas.</p>
     <ul id="txlog" class="txlog" aria-live="polite"><li class="muted">No transactions submitted from this page.</li></ul>
     <button id="check-pending" class="btn ghost" type="button" hidden>Check pending transaction</button>
+    <button id="reveal-pending" class="btn ghost" type="button" hidden disabled>Reveal pending passes</button>
     <div id="mint-result" class="nft-result" hidden></div>
     <div class="row lookup-row">
       <label for="lookup-id">Look up a minted token</label>
@@ -108,7 +110,7 @@
       <li>The NFT contract calls BMC <code>burnFrom</code> and verifies that both your balance and BMC total supply drop by exactly the mint price. BMC is never transferred to a developer wallet.</li>
       <li>If allowance is insufficient, this page requests approval for the exact single-mint price. It never requests unlimited approval. An approval alone does not mint or burn.</li>
       <li>The phase or supply can change while transactions are pending. If minting reverts, its burn rolls back; gas may still be spent and a previous approval may remain. Check any pending transaction before trying again.</li>
-      <li>Genesis artwork and Standard metadata are fixed. The owner has no special mint, price-change, withdrawal, pause or upgrade power. A PASS is a collectible; this page promises no financial return.</li>
+      <li>Genesis artwork and Standard metadata are fixed. The owner's only power is to open minting once after deployment, verification and authorization; there is no pause, close, special mint, price-change, withdrawal or upgrade power. A PASS is a collectible; this page promises no financial return.</li>
     </ul>
   </section>
   <section class="card" aria-labelledby="gallery-title">

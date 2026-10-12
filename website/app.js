@@ -20,14 +20,15 @@
     for (const item of [...transactions.values()].reverse()) {
       const li = document.createElement("li"), link = document.createElement("a"), label = document.createElement("span");
       link.href = `https://etherscan.io/tx/${item.hash}`; link.target = "_blank"; link.rel = "noopener noreferrer";
-      link.textContent = `${item.stage === "approval" ? "BMC approval" : "PASS mint"} · ${item.hash.slice(0, 10)}…${item.hash.slice(-6)}`;
+      link.textContent = `${item.stage === "approval" ? "BMC approval" : item.stage === "reveal" ? "PASS reveal" : "PASS mint"} · ${item.hash.slice(0, 10)}…${item.hash.slice(-6)}`;
       label.className = "pill"; label.textContent = item.status;
       li.append(link, " ", label); list.append(li);
     }
   }
-  function showNFT(container, metadata, id, hash) {
+  function showNFT(container, metadata, id, hash, pending) {
     container.replaceChildren(); container.hidden = false;
     const heading = document.createElement("h3"); heading.textContent = metadata?.name || `BMC Illuminati Pass #${id}`; container.append(heading);
+    if (pending) { const note = document.createElement("p"); note.className = "hint"; note.textContent = "Awaiting reveal: the outcome settles from the hash of the block after the mint block. Press Reveal pending passes once it is final; anyone may reveal, and nobody can change the result."; container.append(note); }
     if (metadata) {
       const image = document.createElement("img"); image.src = metadata.image;
       image.alt = metadata.name; image.width = 400; image.height = 400;
@@ -61,17 +62,21 @@
     $("allowance").textContent = live ? fmt(s.allowance) : "Not available";
     $("message").textContent = s.message || (live ? "Connect your wallet to view the current mint state." : "Minting is disabled in pre-launch mode.");
     const stats = s.stats;
-    $("phase").textContent = stats ? stats.minted >= 500n ? "Sold out" : stats.minted < 40n ? "Genesis" : "Mystery" : live ? "Awaiting contract data" : "Pre-launch";
+    $("phase").textContent = stats ? !stats.open ? "Not opened yet" : stats.minted >= 500n ? "Sold out" : stats.minted < 40n ? "Genesis" : "Mystery" : live ? "Awaiting contract data" : "Pre-launch";
+    $("pending-reveals").textContent = stats ? String(stats.pending) : "—";
+    if (stats && !stats.open) $("launch-title").textContent = "BMC PASS — Coming Soon";
     $("price").textContent = stats ? stats.price ? fmt(stats.price) : "Sold out" : "Not live";
     $("supply").textContent = `${stats ? stats.minted : "—"} / 500`;
     $("remaining").textContent = stats ? String(stats.remaining) : "—";
     $("burned").textContent = fmt(stats?.burned);
     $("stats-note").textContent = stats ? "Supply and burn totals are read from the NFT contract on Ethereum Mainnet." : "Minted, remaining supply and burn totals will be read from the actual deployed NFT contract. No live totals are available yet.";
-    $("genesis-left").textContent = stats ? stats.minted < 40n ? `${40n - stats.minted} Genesis mints remain in phase 1.` : "Phase 1 complete." : "Coming soon · 40 Genesis mints in phase 1.";
-    $("odds").textContent = stats ? `Remaining inventory: ${stats.genesis} Genesis and ${stats.standard} Standard outcomes. Block manipulation can affect allocation; inventory ratios are not guaranteed buyer odds.` : "Initial pool: 37 Genesis and 423 Standard. Inventory uniqueness is not a fairness guarantee.";
-    const locked = !live || !s.ready || !correctChain || !s.account || s.busy || !!s.pending || !stats;
+    $("genesis-left").textContent = stats ? stats.minted < 40n ? `${40n - stats.minted} Genesis mints remain in phase 1. Mystery opens only after all 40 are sold.` : "Phase 1 complete." : "Coming soon · 40 Genesis mints in phase 1. Mystery opens only after all 40 are sold.";
+    $("odds").textContent = stats ? `Remaining inventory: ${stats.genesis} Genesis and ${stats.standard} Standard outcomes, ${stats.pending} pass${stats.pending === 1n ? "" : "es"} awaiting reveal. The reveal block's proposer can bias allocation; inventory ratios are not guaranteed buyer odds.` : "Initial pool: 37 Genesis and 423 Standard. Inventory uniqueness is not a fairness guarantee.";
+    const locked = !live || !s.ready || !correctChain || !s.account || s.busy || !!s.pending || !stats || !stats.open;
     $("mint-genesis").disabled = locked || stats.minted >= 40n;
     $("mint-mystery").disabled = locked || stats.minted < 40n || stats.minted >= 500n || !$("risk-accepted").checked;
+    $("reveal-pending").hidden = !live || !stats || stats.pending === 0n;
+    $("reveal-pending").disabled = locked;
     $("lookup").disabled = !live || !s.ready || s.busy;
     $("check-pending").hidden = !s.pending;
     $("check-pending").disabled = s.busy || !s.account || !correctChain;
@@ -83,7 +88,8 @@
     }
     if (s.minted) {
       const fingerprint = `${s.minted.id}:${s.minted.metadata?.image || ""}`;
-      if (fingerprint !== lastMint) { lastMint = fingerprint; showNFT($("mint-result"), s.minted.metadata, s.minted.id, s.minted.hash); }
+      const fingerprint2 = `${fingerprint}:${s.minted.pending ? "pending" : "final"}`;
+      if (fingerprint2 !== lastMint) { lastMint = fingerprint2; showNFT($("mint-result"), s.minted.metadata, s.minted.id, s.minted.hash, s.minted.pending); }
     }
   }
   const client = new API.MintClient(C, window.BMC_PASS_BUILD, window.BMC_TOKEN_BUILD, { storage, onChange: render, onTransaction: transaction });
@@ -113,6 +119,7 @@
     return client.mint("mystery");
   });
   $("check-pending").onclick = run(() => client.checkPending());
+  $("reveal-pending").onclick = run(() => client.reveal());
   $("lookup").onclick = run(async () => {
     const id = $("lookup-id").value;
     if (!/^[1-9][0-9]{0,2}$/.test(id) || Number(id) > 500) throw new Error("Enter a token ID from 1 to 500.");

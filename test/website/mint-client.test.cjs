@@ -78,10 +78,41 @@ test('sufficient allowance skips approval',async()=>{
  const {client,provider}=fixture();provider.allowance=API.GENESIS;await client.connect(provider);await client.mint('genesis');
  assert.equal(provider.sent.length,1);assert.equal(provider.sent[0].stage,'mint');
 });
-test('Mystery uses exact 350k approval and its own mint ABI',async()=>{
- const {client,provider}=fixture();provider.minted=40n;await client.connect(provider);await client.mint('mystery');
+test('Mystery uses exact 350k approval, its own mint ABI, then a separate reveal after the next block',async()=>{
+ const {client,provider,events}=fixture();provider.minted=40n;await client.connect(provider);await client.mint('mystery');
  assert.equal(BigInt('0x'+provider.sent[0].data.slice(74)),API.MYSTERY);
  assert.equal(provider.sent[1].data,'0x9aa0c9be');assert.equal(client.state.minted.id,41n);
+ assert.equal(provider.sent.length,3);assert.equal(provider.sent[2].to,PASS);
+ assert.equal(provider.sent[2].data,API.calldata(BUILD,'reveal(uint256)',[1n]));
+ assert.equal(provider.pendingCount,0n);assert.equal(client.state.minted.pending,false);assert.equal(client.state.pending,null);
+ assert.deepEqual(events.map(e=>e.stage+':'+e.status),['approval:pending','approval:confirmed','mint:pending','mint:confirmed','reveal:pending','reveal:confirmed']);
+});
+test('a reveal that stays pending leaves the pass marked unrevealed and locks the page without resending',async()=>{
+ const {client,provider,storage,config}=fixture();provider.minted=40n;provider.allowance=API.MYSTERY;await client.connect(provider);
+ provider.onReceipt=stage=>{if(stage==='mint')provider.pending=true;};
+ await assert.rejects(()=>client.mint('mystery'),/still pending/);
+ assert.equal(provider.sent.length,2);assert.equal(client.state.pending.stage,'reveal');assert.equal(client.state.pending.tokenId,'41');
+ assert.equal(client.state.minted.pending,true);assert.ok(client.state.minted.metadata);
+ await assert.rejects(()=>client.mint('mystery'),/already in progress/);await assert.rejects(()=>client.reveal(),/already in progress/);
+ const recovered=fixture(config,{storage}).client;await recovered.connect(provider);assert.equal(recovered.state.pending.stage,'reveal');
+ provider.pending=false;await recovered.checkPending();assert.equal(recovered.state.pending,null);assert.equal(provider.sent.length,2);
+ assert.equal(recovered.state.minted.id,41n);assert.equal(recovered.state.minted.pending,false);
+});
+test('Reveal pending settles everyone ahead in mint order and sends nothing when nothing is pending',async()=>{
+ const {client,provider}=fixture();provider.minted=45n;provider.pendingCount=5n;provider.remainingStandard=423n;await client.connect(provider);
+ assert.equal(client.state.stats.pending,5n);await client.reveal();
+ assert.equal(provider.sent.length,1);assert.equal(provider.sent[0].data,API.calldata(BUILD,'reveal(uint256)',[5n]));assert.equal(provider.pendingCount,0n);
+ await client.reveal();assert.equal(provider.sent.length,1);assert.match(client.state.message,/No passes are waiting/);
+});
+test('minting closed on the NFT contract blocks every write even with a fully authorized configuration',async()=>{
+ const {client,provider}=fixture();provider.open=false;await client.connect(provider);
+ assert.equal(client.state.stats.open,false);
+ for(const kind of ['genesis','mystery'])await assert.rejects(()=>client.mint(kind),/not opened minting/);
+ assert.equal(provider.sent.length,0);
+});
+test('a pending-count that does not reconcile with the inventory fails closed',async()=>{
+ const {client,provider}=fixture();provider.minted=45n;provider.pendingCount=6n;await client.connect(provider);
+ assert.equal(client.state.ready,false);await assert.rejects(()=>client.mint('mystery'));assert.equal(provider.sent.length,0);
 });
 test('wrong phase and sold out cannot request approval',async()=>{
  for(const [minted,kind] of [[0n,'mystery'],[40n,'genesis'],[500n,'mystery']]){
@@ -148,6 +179,9 @@ test('accountsChanged emitted during wallet connection does not lose the connect
 test('closing the connection while the wallet prompt is open cannot reconnect it later',async()=>{
  const {client,provider}=fixture();provider.onCall=method=>{if(method==='eth_requestAccounts')client.disconnect();};
  await client.connect(provider);assert.equal(client.state.account,null);assert.equal(client.provider,null);
+});
+test('mint-client public API still refuses the retired VRF finalization ABI',()=>{
+ assert.throws(()=>API.calldata(BUILD,'finalizeReveals(uint256)',[1]));assert.throws(()=>API.calldata(BUILD,'rawFulfillRandomWords(uint256,uint256[])',[1,[]]));
 });
 test('gas estimate includes room for a different next-block Mystery storage branch',async()=>{
  const {client,provider}=fixture();provider.minted=40n;await client.connect(provider);await client.mint('mystery');

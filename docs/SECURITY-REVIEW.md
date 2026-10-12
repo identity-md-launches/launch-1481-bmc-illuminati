@@ -28,25 +28,39 @@ coverage information, not a defect. Historical Chainlink callback/configuration 
 apply because the task explicitly requests block-derived randomness. This change is not a claim
 that block randomness is stronger than VRF.
 
-## Accepted design risk: manipulable block randomness
+## Accepted design risk: manipulable block randomness (revised: commit-reveal)
 
-Mystery draws hash `prevrandao`, the prior block hash, timestamp, collection address, caller and
-token ID, then use the existing virtual Fisher-Yates pool. All successful mints immediately get
-one permanent outcome; there is no asynchronous reveal queue to block. Full sellout guarantees
-37 Mystery Genesis and 423 Standard outcomes without duplicate artwork.
+Mystery mints burn and issue a pending pass recording the mint block. `reveal` settles pending
+passes in mint order from `blockhash(mintBlock + 1)` mixed with the collection address and token
+id, through the existing virtual Fisher-Yates pool. Full sellout still guarantees 37 Mystery
+Genesis and 423 Standard outcomes without duplicate artwork.
 
-**The allocation is not cryptographically manipulation-resistant or provably fair.** Inclusion,
-ordering, caller selection and block construction can influence outcomes. A receiver can inspect
-its assigned artwork in `onERC721Received` and revert unwanted outcomes; the burn then rolls back,
-per normal transaction semantics. A buyer can simulate or retry under different block conditions.
-No disclosure or small entropy-mixing change removes this risk. This is the explicitly requested
-design and is disclosed prominently beside the Mystery purchase controls, with an acknowledgement.
-The implementation must not be marketed as guaranteeing fairness, unpredictable odds, or
-tamper-proof randomness. Inventory ratios describe inventory, not manipulation-resistant odds.
+What the revision closes (independent finding `cfb1eeea…`): the outcome does not exist while the
+burn is reversible, so a contract caller cannot observe and revert, an EOA cannot simulate against
+the next block and send only on a good result, and fresh helper contracts do not yield fresh draws
+(`msg.sender` is not an input). A reverted reveal changes nothing; a delayed reveal cannot improve
+anything because the reveal hash is fixed and, past the window, the pass settles as Standard.
+In-order settlement stops a holder from timing a reveal against other buyers' reveals.
 
-Gas estimates can differ between the simulated and included Mystery outcome. The client includes
-20% plus 50,000 gas headroom over the wallet RPC estimate. This is not a guarantee for an arbitrary
-receiver; a receiver can always reject. No gas buffer creates fairness or prevents a reverted mint.
+**What remains, and is disclosed:** the proposer of the reveal block chooses among candidate
+blocks (and can withhold one at the cost of the block reward), so allocation can still be biased by
+whoever builds that block. Inclusion and ordering remain under builder influence. EIP-2935 lookups
+depend on the history contract being present on mainnet (it is, since Prague); if it were absent,
+the native 256-block window applies and later reveals settle as Standard, which the metadata
+and events (`forced`) make visible. The design is not provably fair and must not be marketed as
+tamper-proof. Inventory ratios describe inventory, not manipulation-resistant odds.
+
+## Launch gate (independent finding `b5ce1446…`)
+
+On chain id 1 (mainnet and forks of it) minting is closed from construction until the owner's
+one-way `openMinting()`; there is no closing, pausing or restricting call, and the open state
+survives ownership renunciation. On other chain ids the contract is open from construction so that
+rehearsal chains and the reviewer's held proof work unchanged. This is the only owner power.
+
+Gas estimates for `reveal` can differ between simulation and inclusion (another reveal may settle
+part of the queue first, or a forced-Standard scan may run). The client includes 20% plus 50,000
+gas headroom over the wallet RPC estimate and bounds a reveal to 50 passes. No gas buffer creates
+fairness or prevents a reverted transaction; a reverted reveal simply leaves the pass pending.
 
 ## Website boundaries
 

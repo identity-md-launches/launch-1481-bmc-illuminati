@@ -32,10 +32,20 @@ The responsible reviewer/deployer must complete all of these before enabling the
    deployment address, chain, block and test evidence. The development tests here do not validate
    any future deployment address.
 6. Obtain the requester's explicit **public-mint authorization** and record its durable reference.
+7. Only then, the owner (`0x83027AD9d0D5374335086c539dADD1db983441B0`) sends `openMinting()` once.
 
-The factory-compatible contract is fully configured at creation and has no on-chain enable/pause
-switch. Direct mint calls become possible as soon as it is deployed. Coordinate deployment,
-verification and launch authorization accordingly; the website gate is not on-chain access control.
+On Ethereum Mainnet the contract is deployed **closed**: `mintingOpen()` is false and both mint
+functions revert `MintingNotOpen()` until the owner's one-way `openMinting()` call, so nobody can
+take Legendary #1 while the steps above are in progress. There is no pause, close or restrict
+function afterwards. Step 5 can be rehearsed on a fork of the real deployment by impersonating the
+owner to open it there; mainnet ids are only consumed once the owner opens the real contract.
+The website's LIVE gate is the second layer, not on-chain access control.
+
+Mystery passes are settled by a separate `reveal(maxCount)` call from the hash of the block after
+the mint block, in mint order; anyone may call it and the mint page sends one for the buyer. The
+hash is readable for 8,191 blocks (about 27 hours, via EIP-2935); a pass nobody reveals in that
+window settles as Standard. Operators should run a periodic `reveal` keeper (any account, any
+gas-paying wallet) so that buyers whose page closed are settled from their reveal hash.
 
 ## Configuration after all prerequisites
 

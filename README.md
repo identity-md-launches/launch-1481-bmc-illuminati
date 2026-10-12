@@ -39,13 +39,20 @@ progress, Etherscan links, pending-transaction recovery, minted NFT display and 
 
 - **Genesis, token IDs 1–40:** sequential artwork IDs 1–40; #1 Legendary Genesis, #2–40 Early
   Genesis. Each mint burns exactly 1,000,000 BMC.
-- **Mystery, token IDs 41–500:** each mint burns exactly 350,000 BMC and immediately draws one
-  outcome without replacement from 37 Genesis artworks (#41–77) and 423 Standard artworks.
-- **Randomness risk:** the draw uses `prevrandao`, previous block hash, timestamp, the collection
-  address, buyer address and token ID. It is **not cryptographically manipulation-resistant**.
-  Builders/validators can influence inclusion/ordering; callers can simulate outcomes and
-  contract receivers can revert unwanted results. Uniqueness does not guarantee fair allocation.
-  This is the requested block-random design, not Chainlink VRF or the deterministic branch.
+- **Mystery, token IDs 41–500:** opens only after all 40 Genesis are sold. Each mint burns exactly
+  350,000 BMC and issues an unrevealed pass. `reveal(maxCount)`, callable by anyone, settles
+  pending passes in mint order from the hash of the block after each mint block, drawing without
+  replacement from 37 Genesis artworks (#41–77) and 423 Standard artworks. The hash is readable for
+  8,191 blocks (about 27 hours, via EIP-2935); a pass nobody reveals in that window settles as
+  Standard, so delaying a reveal never helps. The mint page sends the reveal for the buyer.
+- **Randomness risk:** the draw uses a future block hash, the collection address and the token ID.
+  It is **not cryptographically manipulation-resistant**: the proposer of the reveal block can bias
+  it, and builders/validators influence inclusion/ordering. Buyers cannot preview, pick or revert an
+  outcome because the burn is final before the hash exists. Uniqueness does not guarantee fair
+  allocation. This is the requested block-random design, not Chainlink VRF or the deterministic branch.
+- **Launch gate:** on Ethereum Mainnet (chain id 1) minting is closed from deployment until the
+  owner calls `openMinting()` once; nothing can close it again. Other chain ids are open from
+  construction for rehearsals.
 - **Artwork:** Genesis uses the requester's immutable CID
   `bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u`, with filenames
   `genesis-01.png` through `genesis-77.png`. All 77 PNGs were fetched and validated; the full report
@@ -55,9 +62,9 @@ progress, Etherscan links, pending-transaction recovery, minted NFT display and 
   mint reverts. No BMC is transferred to a developer or retained by the NFT contract. Maximum burn
   is 201,000,000 BMC. The contract rechecks BMC's 18 decimals on every mint.
 
-The initial owner has no privileged mint, metadata, randomness, pricing, withdrawal, pause or
-upgrade power. Standard inherited ownership transfer/renunciation remains, without operational
-powers. ERC-721 transfers, approvals and metadata views retain their existing behavior.
+Beyond the one-way opening, the owner has no privileged mint, metadata, randomness, pricing,
+withdrawal, pause or upgrade power. Standard inherited ownership transfer/renunciation remains.
+ERC-721 transfers, approvals and metadata views retain their existing behavior.
 
 ## Factory handoff
 
@@ -74,9 +81,9 @@ setter/initializer calls follow deployment. `StandardArt` has only internal func
 no linked-library deployment. No launch token, pool, proxy or manifest was added.
 
 `script/Deploy.s.sol` is now a simulation helper; it does not start a broadcast. The launch
-factory handles any separately authorized deployment. On-chain mint functions are permissionless
-once deployed: the website's launch controls govern its interface, not direct contract calls.
-Do not deploy merely to preview this website.
+factory handles any separately authorized deployment. On mainnet the deployed contract stays
+closed until the owner's `openMinting()`; after that the mint functions are permissionless and the
+website's launch controls govern only its interface. Do not deploy merely to preview this website.
 
 ## Launch authorization
 
@@ -109,7 +116,7 @@ are also checked separately against the real BMC token:
 
 ```sh
 forge test --match-contract BMCMainnetForkTest \
-  --fork-url http://127.0.0.1:40277/rpc/1 --fork-block-number 26179236 -vv
+  --fork-url <ethereum mainnet archive RPC> --fork-block-number 26179236 -vv
 ```
 
 The above RPC is specific to this contributor machine; it is not part of the public website.

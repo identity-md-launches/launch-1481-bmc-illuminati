@@ -28,7 +28,8 @@ test('offline Anvil: exact approvals, real burnFrom and all 500 real contract mi
    for(let i=0;i<20;i++){
     await rpc('evm_mine');
     const receipt=await rpc('eth_getTransactionReceipt',[hash]);
-    if(receipt){await rpc('evm_mine');return receipt;}
+    // Two more blocks: Anvil may seal the transaction in the first evm_mine, and a Mystery reveal needs the block after the mint block to be final.
+    if(receipt){await rpc('evm_mine');await rpc('evm_mine');return receipt;}
     await new Promise(r=>setTimeout(r,10));
    }
    throw new Error('Local transaction did not mine');
@@ -42,6 +43,10 @@ test('offline Anvil: exact approvals, real burnFrom and all 500 real contract mi
   const deployment=await rpc('eth_sendTransaction',[{from:account,data:creation,gas:'0x989680'}]);
   const deployed=await mined(deployment);assert.equal(deployed.status,'0x1');
   const pass=deployed.contractAddress;
+  // Chain id 1: the launch gate is closed until the explicit owner (the deploying test account) opens it once.
+  assert.equal(await rpc('eth_call',[{to:pass,data:API.calldata(BUILD,'mintingOpen()')},'latest']),word(0));
+  await mined(await rpc('eth_sendTransaction',[{from:account,to:pass,data:API.calldata(BUILD,'openMinting()'),gas:'0xf4240'}]));
+  assert.equal(await rpc('eth_call',[{to:pass,data:API.calldata(BUILD,'mintingOpen()')},'latest']),word(1));
   const mintData='0x'+mock.methodIdentifiers['mint(address,uint256)']+word(BigInt(account)).slice(2)+word(201000000n*10n**18n).slice(2);
   await mined(await rpc('eth_sendTransaction',[{from:account,to:API.BMC,data:mintData,gas:'0xf4240'}]));
   const config=liveConfig();config.PASS_ADDRESS=pass;config.LAUNCH.REVIEWED_RUNTIME_SHA256=await API.sha256Hex(await rpc('eth_getCode',[pass,'latest']));
@@ -67,13 +72,17 @@ test('offline Anvil: exact approvals, real burnFrom and all 500 real contract mi
    await provider.request({method:'eth_sendTransaction',params:[{from:account,to:pass,data:API.calldata(BUILD,'mintGenesis()')}]});
   }
   await client.mint('mystery');assert.equal(client.state.minted.id,41n);assert.ok(client.state.minted.metadata);
-  assert.equal(client.state.stats.burned,40350000n*10n**18n);
+  assert.equal(client.state.minted.pending,false);assert.equal(sends.length,83);assert.equal(sends[82].to,pass);assert.equal(sends[82].data,API.calldata(BUILD,'reveal(uint256)',[1n]));
+  assert.equal(client.state.stats.burned,40350000n*10n**18n);assert.equal(client.state.stats.pending,0n);
   const art=new Set();let genesis=0,standard=0;
   // Mint the entire inventory to verify the UI metadata decoder against real PNG and SVG tokenURIs.
   for(let id=41;id<=500;id++){
    if(id>41){
     await provider.request({method:'eth_sendTransaction',params:[{from:account,to:API.BMC,data:API.calldata(TOKEN,'approve(address,uint256)',[pass,API.MYSTERY])}]});
     await provider.request({method:'eth_sendTransaction',params:[{from:account,to:pass,data:API.calldata(BUILD,'mintMystery()')}]});
+    // Unrevealed until the next block's hash exists; the mined() helper advanced the chain past it.
+    assert.equal(await rpc('eth_call',[{to:pass,data:API.calldata(BUILD,'tierOf(uint256)',[id])},'latest']),word(0));
+    await provider.request({method:'eth_sendTransaction',params:[{from:account,to:pass,data:API.calldata(BUILD,'reveal(uint256)',[1n])}]});
    }
    const data=await client.lookup(id);assert.equal(art.has(data.image),false,'duplicate artwork');art.add(data.image);
    if(data.image.startsWith('data:image/svg+xml;base64,')){

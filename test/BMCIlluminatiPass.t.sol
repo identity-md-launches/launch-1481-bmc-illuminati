@@ -9,6 +9,67 @@ import {StandardArt} from "../src/StandardArt.sol";
 import {MockBMC, FakeBurnBMC, SixDecimalBMC} from "./mocks/MockBMC.sol";
 import {DeployBMCIlluminatiPass} from "../script/Deploy.s.sol";
 
+/// @dev Minimal EIP-2935 history contract stand-in: 32-byte block number in, stored hash out.
+contract MockBlockHistory {
+    mapping(uint256 => bytes32) public hashes;
+
+    function set(uint256 n, bytes32 h) external {
+        hashes[n] = h;
+    }
+
+    fallback(bytes calldata input) external returns (bytes memory) {
+        require(input.length == 32, "bad input");
+        bytes32 h = hashes[abi.decode(input, (uint256))];
+        require(h != bytes32(0), "unknown block");
+        return abi.encode(h);
+    }
+}
+
+/// @dev Throwaway minter used by the selective-caller regression: reverts unless its mint is Genesis.
+contract Picker is IERC721Receiver {
+    BMCIlluminatiPass immutable pass;
+    MockBMC immutable bmc;
+    address immutable parent;
+
+    constructor(BMCIlluminatiPass p, MockBMC t) {
+        pass = p;
+        bmc = t;
+        parent = msg.sender;
+    }
+
+    function tryGenesis(uint256 price) external returns (uint256 id) {
+        bmc.transferFrom(parent, address(this), price);
+        bmc.approve(address(pass), price);
+        id = pass.mintMystery();
+        require(pass.tierOf(id) == BMCIlluminatiPass.Tier.Genesis, "not genesis: roll back");
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+}
+
+contract Hunter {
+    BMCIlluminatiPass immutable pass;
+    MockBMC immutable bmc;
+
+    constructor(BMCIlluminatiPass p, MockBMC t) {
+        pass = p;
+        bmc = t;
+    }
+
+    function hunt(uint256 price, uint256 maxTries) external returns (uint256 id, uint256 tries) {
+        for (tries = 1; tries <= maxTries; tries++) {
+            Picker p = new Picker(pass, bmc);
+            bmc.approve(address(p), price);
+            try p.tryGenesis(price) returns (uint256 got) {
+                return (got, tries);
+            } catch {}
+        }
+        return (0, tries - 1);
+    }
+}
+
 contract Reenterer is IERC721Receiver {
     BMCIlluminatiPass public pass;
     bool public attackGenesis;
@@ -80,6 +141,17 @@ contract BMCIlluminatiPassTest is Test {
         vm.stopPrank();
     }
 
+    /// @dev Finalize the reveal block and settle every pending mystery token.
+    function _revealAll() internal returns (uint256 n) {
+        vm.roll(block.number + 2);
+        n = pass.reveal(500);
+    }
+
+    function _mintAndReveal(address who) internal returns (uint256 id) {
+        id = _mintMysteryAs(who);
+        _revealAll();
+    }
+
     function _finishPhase1() internal {
         for (uint256 i = 0; i < 40; i++) {
             _mintGenesisAs(address(uint160(0x1000 + i)));
@@ -149,6 +221,7 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(p.symbol(), "BMCPASS");
         assertEq(p.genesisImagesCID(), "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
         // Deployment succeeds without token code. First use validates that dependency.
+        assertTrue(p.mintingOpen(), "rehearsal chain is open from construction");
         vm.expectRevert(BMCIlluminatiPass.BMCTokenUnavailable.selector);
         p.mintGenesis();
     }
@@ -171,6 +244,67 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(pass.MYSTERY_PRICE(), MYSTERY_PRICE);
         assertEq(pass.MAX_TOTAL_BURN(), 201_000_000e18);
         assertEq(40 * GENESIS_PRICE + 460 * MYSTERY_PRICE, pass.MAX_TOTAL_BURN());
+        assertEq(pass.REVEAL_WINDOW(), 8191);
+        assertEq(pass.BLOCK_HISTORY(), 0x0000F90827F1C53a10cb7A02335B175320002935);
+    }
+
+    // ------------------------------------------------------------------ launch gate
+
+    function _mainnetPass() internal returns (BMCIlluminatiPass p) {
+        vm.chainId(1);
+        p = new BMCIlluminatiPass(owner, address(bmc));
+    }
+
+    function test_LaunchGate_MainnetDeploymentIsClosedUntilOwnerOpens() public {
+        BMCIlluminatiPass p = _mainnetPass();
+        assertFalse(p.mintingOpen());
+        _fund(alice, GENESIS_PRICE + MYSTERY_PRICE);
+        vm.startPrank(alice);
+        bmc.approve(address(p), GENESIS_PRICE + MYSTERY_PRICE);
+        vm.expectRevert(BMCIlluminatiPass.MintingNotOpen.selector);
+        p.mintGenesis();
+        vm.expectRevert(BMCIlluminatiPass.MintingNotOpen.selector);
+        p.mintMystery();
+        vm.stopPrank();
+        assertEq(p.totalMinted(), 0);
+        assertEq(bmc.balanceOf(alice), GENESIS_PRICE + MYSTERY_PRICE, "nothing burned while closed");
+
+        vm.prank(owner);
+        p.openMinting();
+        assertTrue(p.mintingOpen());
+        vm.prank(alice);
+        assertEq(p.mintGenesis(), 1);
+        assertEq(uint8(p.tierOf(1)), uint8(BMCIlluminatiPass.Tier.LegendaryGenesis));
+    }
+
+    function test_LaunchGate_OnlyOwnerOpensAndNothingCanCloseAgain() public {
+        BMCIlluminatiPass p = _mainnetPass();
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
+        p.openMinting();
+        vm.startPrank(owner);
+        p.openMinting();
+        vm.expectRevert(BMCIlluminatiPass.MintingAlreadyOpen.selector);
+        p.openMinting();
+        (bool pause,) = address(p).call(abi.encodeWithSignature("pause()"));
+        (bool close,) = address(p).call(abi.encodeWithSignature("closeMinting()"));
+        (bool set,) = address(p).call(abi.encodeWithSignature("setMintActive(bool)", false));
+        p.renounceOwnership();
+        vm.stopPrank();
+        assertFalse(pause);
+        assertFalse(close);
+        assertFalse(set);
+        assertTrue(p.mintingOpen(), "open survives ownership renunciation");
+        _fund(alice, GENESIS_PRICE);
+        vm.startPrank(alice);
+        bmc.approve(address(p), GENESIS_PRICE);
+        assertEq(p.mintGenesis(), 1);
+        vm.stopPrank();
+    }
+
+    function test_LaunchGate_RehearsalChainIsOpenFromConstruction() public view {
+        assertTrue(block.chainid != 1);
+        assertTrue(pass.mintingOpen());
     }
 
     // ------------------------------------------------------------------ phase 1
@@ -355,11 +489,186 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(bmc.balanceOf(alice), 650_000e18);
         assertEq(bmc.totalSupply(), supplyBefore - MYSTERY_PRICE);
         assertEq(pass.totalBurned(), 40 * GENESIS_PRICE + MYSTERY_PRICE);
+        // Burn is final; the outcome is not: nothing in the mint transaction can see it.
+        assertEq(uint8(pass.tierOf(41)), uint8(BMCIlluminatiPass.Tier.Pending));
+        assertEq(pass.artworkIdOf(41), 0);
+        assertEq(uint8(pass.revealStatusOf(41)), uint8(BMCIlluminatiPass.RevealStatus.AwaitingRandomness));
+        assertEq(pass.revealBlockOf(41), block.number + 1);
+        assertEq(pass.revealDeadlineOf(41), block.number + 1 + 8191);
+        assertEq(pass.pendingReveals(), 1);
+        assertEq(pass.nextRevealId(), 41);
+        assertEq(pass.remainingMysteryMints(), 459);
+        assertEq(pass.remainingMysteryGenesis(), 37);
+        assertEq(pass.currentPrice(), MYSTERY_PRICE);
+        assertEq(_revealAll(), 1);
         assertTrue(pass.tierOf(41) != BMCIlluminatiPass.Tier.Pending);
         assertEq(uint8(pass.revealStatusOf(41)), uint8(BMCIlluminatiPass.RevealStatus.Revealed));
         assertEq(pass.pendingReveals(), 0);
-        assertEq(pass.remainingMysteryMints(), 459);
-        assertEq(pass.currentPrice(), MYSTERY_PRICE);
+        assertEq(pass.nextRevealId(), 0);
+    }
+
+    // ------------------------------------------------------------------ commit-reveal
+
+    /// Finding cfb1eeea: a selective contract caller cannot pick a Genesis outcome inside the mint.
+    function test_SelectiveCallerCannotChooseMysteryOutcome() public {
+        _finishPhase1();
+        Hunter hunter = new Hunter(pass, bmc);
+        _fund(address(hunter), MYSTERY_PRICE);
+        (uint256 id, uint256 tries) = hunter.hunt(MYSTERY_PRICE, 300);
+        assertEq(id, 0, "no attempt could confirm a Genesis inside its own transaction");
+        assertEq(tries, 300);
+        assertEq(pass.mysteryGenesisRevealed(), 0);
+        // Every attempt saw Tier.Pending and reverted, rolling back its own burn: no free re-rolls, no mint.
+        assertEq(pass.totalMinted(), 40);
+        assertEq(bmc.balanceOf(address(hunter)), MYSTERY_PRICE);
+    }
+
+    function test_RevealWaitsForTheBlockAfterTheMint() public {
+        _finishPhase1();
+        uint256 id = _mintMysteryAs(alice);
+        assertEq(pass.reveal(10), 0, "same block: nothing to settle");
+        vm.roll(block.number + 1);
+        assertEq(pass.reveal(10), 0, "reveal block still open: nothing to settle");
+        assertEq(uint8(pass.revealStatusOf(id)), uint8(BMCIlluminatiPass.RevealStatus.AwaitingRandomness));
+        vm.roll(block.number + 1);
+        assertEq(uint8(pass.revealStatusOf(id)), uint8(BMCIlluminatiPass.RevealStatus.RandomnessStored));
+        vm.prank(bob); // anyone may settle
+        assertEq(pass.reveal(10), 1);
+        assertTrue(pass.tierOf(id) != BMCIlluminatiPass.Tier.Pending);
+        assertEq(pass.reveal(10), 0);
+    }
+
+    function test_RevealOutcomeDependsOnlyOnTheRevealBlockHash() public {
+        _finishPhase1();
+        uint256 id = _mintMysteryAs(alice);
+        uint256 revealBlock = block.number + 1;
+        vm.roll(revealBlock + 1);
+        vm.setBlockhash(revealBlock, keccak256("reveal block"));
+        uint256 snap = vm.snapshotState();
+        pass.reveal(1);
+        bytes32 early = keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id)));
+        vm.revertToState(snap);
+        vm.roll(revealBlock + 200);
+        vm.warp(block.timestamp + 1 days);
+        vm.prevrandao(bytes32(uint256(12345)));
+        vm.prank(bob);
+        pass.reveal(1);
+        assertEq(keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id))), early, "timing/caller cannot change it");
+    }
+
+    function test_RevealIsInMintOrderAndBatched() public {
+        _finishPhase1();
+        uint256 a = _mintMysteryAs(alice);
+        vm.roll(block.number + 1);
+        uint256 b = _mintMysteryAs(bob);
+        vm.roll(block.number + 1); // a's reveal block is final, b's is the current block
+        assertEq(pass.reveal(10), 1);
+        assertTrue(pass.tierOf(a) != BMCIlluminatiPass.Tier.Pending);
+        assertEq(uint8(pass.tierOf(b)), uint8(BMCIlluminatiPass.Tier.Pending));
+        uint256 c = _mintMysteryAs(alice);
+        vm.roll(block.number + 2);
+        assertEq(pass.reveal(1), 1, "maxCount bounds the batch");
+        assertTrue(pass.tierOf(b) != BMCIlluminatiPass.Tier.Pending);
+        assertEq(uint8(pass.tierOf(c)), uint8(BMCIlluminatiPass.Tier.Pending));
+        assertEq(pass.pendingReveals(), 1);
+        assertEq(pass.nextRevealId(), c);
+        assertEq(pass.reveal(1), 1);
+        assertEq(pass.pendingReveals(), 0);
+    }
+
+    function test_ExpiredRevealWindowSettlesAsStandard() public {
+        _finishPhase1();
+        uint256 id = _mintMysteryAs(alice);
+        vm.roll(block.number + 1 + 8191 + 1); // one block past the deadline, no history contract
+        assertTrue(block.number > pass.revealDeadlineOf(id));
+        vm.expectEmit(true, false, false, false);
+        emit BMCIlluminatiPass.Revealed(id, BMCIlluminatiPass.Tier.Standard, 0, true);
+        assertEq(pass.reveal(1), 1);
+        assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Standard));
+        assertEq(pass.mysteryGenesisRevealed(), 0);
+        assertEq(pass.remainingMysteryGenesis(), 37);
+        assertEq(pass.remainingMysteryStandard(), 422);
+        uint16 art = pass.artworkIdOf(id);
+        assertTrue(art >= 1 && art <= 423);
+    }
+
+    function test_ExpiredWindowWithOnlyGenesisLeftStillSettles() public {
+        _finishPhase1();
+        for (uint256 i; i < 460; ++i) {
+            _mintMysteryAs(alice);
+        }
+        vm.roll(block.number + 1 + 8191 + 1); // every token's window expired
+        // Forced settlement takes Standard slots first: 423 forced reveals exhaust them, Genesis untouched.
+        assertEq(pass.reveal(423), 423);
+        assertEq(pass.remainingMysteryStandard(), 0);
+        assertEq(pass.remainingMysteryGenesis(), 37);
+        assertEq(pass.mysteryGenesisRevealed(), 0);
+        for (uint256 id = 41; id <= 463; ++id) {
+            assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Standard));
+        }
+        // Only Genesis slots remain: the fallback still settles every remaining token.
+        assertEq(pass.reveal(100), 37);
+        assertEq(pass.pendingReveals(), 0);
+        assertEq(pass.mysteryGenesisRevealed(), 37);
+        for (uint256 id = 464; id <= 500; ++id) {
+            assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Genesis));
+            assertTrue(pass.artworkIdOf(id) >= 41 && pass.artworkIdOf(id) <= 77);
+        }
+    }
+
+    function test_HistoryContractExtendsRevealWindowBeyond256Blocks() public {
+        _finishPhase1();
+        MockBlockHistory impl = new MockBlockHistory();
+        vm.etch(pass.BLOCK_HISTORY(), address(impl).code);
+        MockBlockHistory history = MockBlockHistory(pass.BLOCK_HISTORY());
+        uint256 id = _mintMysteryAs(alice);
+        uint256 revealBlock = block.number + 1;
+        bytes32 hash = keccak256("the reveal block");
+        vm.roll(revealBlock + 100); // native blockhash path
+        vm.setBlockhash(revealBlock, hash);
+        history.set(revealBlock, hash);
+        uint256 snap = vm.snapshotState();
+        pass.reveal(1);
+        bytes32 native = keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id)));
+        vm.revertToState(snap);
+        vm.roll(revealBlock + 5000); // beyond 256: EIP-2935 path
+        assertEq(blockhash(revealBlock), bytes32(0));
+        pass.reveal(1);
+        assertEq(keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id))), native, "same hash, same outcome");
+        vm.revertToState(snap);
+        vm.roll(revealBlock + 8192); // past the window even with history: forced Standard
+        pass.reveal(1);
+        assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Standard));
+    }
+
+    function test_PendingMetadataIsNeutralAndFinalMetadataIsPermanent() public {
+        _finishPhase1();
+        uint256 id = _mintMysteryAs(alice);
+        string memory json = _decodeTokenURI(id);
+        assertTrue(_contains(json, '"Tier","value":"Unrevealed"'));
+        assertTrue(_contains(json, "Unrevealed"));
+        assertFalse(_contains(json, "genesis-"));
+        assertFalse(_contains(json, '"value":"Standard"'));
+        assertTrue(_contains(json, '"image":"data:image/svg+xml;base64,'));
+        _revealAll();
+        bytes32 finalMetadata = keccak256(bytes(pass.tokenURI(id)));
+        assertFalse(_contains(_decodeTokenURI(id), "Unrevealed"));
+        vm.roll(block.number + 10_000);
+        assertEq(keccak256(bytes(pass.tokenURI(id))), finalMetadata);
+    }
+
+    function test_RevertingRevealCallerCannotReroll() public {
+        _finishPhase1();
+        uint256 id = _mintMysteryAs(alice);
+        vm.roll(block.number + 2);
+        uint256 snap = vm.snapshotState();
+        pass.reveal(1);
+        bytes32 outcome = keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id)));
+        vm.revertToState(snap);
+        // A reverted reveal (simulated by the snapshot) changes nothing: the next reveal is identical.
+        vm.roll(block.number + 50);
+        pass.reveal(1);
+        assertEq(keccak256(abi.encode(pass.tierOf(id), pass.artworkIdOf(id))), outcome);
     }
 
     function test_TransfersAreStandard() public {
@@ -389,9 +698,12 @@ contract BMCIlluminatiPassTest is Test {
         _finishPhase1();
         for (uint256 i = 0; i < 460; i++) {
             address who = address(uint160(0x5000 + (i % 97)));
-            vm.prevrandao(keccak256(abi.encode("entropy", i)));
             uint256 id = _mintMysteryAs(who);
             assertEq(id, 41 + i);
+            assertEq(uint8(pass.tierOf(id)), uint8(BMCIlluminatiPass.Tier.Pending));
+            vm.roll(block.number + 2);
+            vm.setBlockhash(block.number - 1, keccak256(abi.encode("entropy", i)));
+            assertEq(pass.reveal(1), 1);
             assertTrue(pass.tierOf(id) != BMCIlluminatiPass.Tier.Pending);
         }
         assertEq(pass.totalMinted(), 500);
@@ -459,11 +771,16 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(bmc.totalSupply(), GENESIS_PRICE, "every BMC paid was destroyed");
     }
 
-    function test_FullMintOutInSameBlock() public {
+    function test_FullMintOutInSameBlockThenBatchReveal() public {
         _finishPhase1();
         for (uint256 i = 0; i < 460; i++) {
             _mintMysteryAs(alice);
         }
+        assertEq(pass.pendingReveals(), 460);
+        vm.roll(block.number + 2);
+        assertEq(pass.reveal(100), 100);
+        assertEq(pass.pendingReveals(), 360);
+        assertEq(pass.reveal(1000), 360);
         assertEq(pass.revealedCount(), 460);
         assertEq(pass.mysteryGenesisRevealed(), 37);
         assertEq(pass.remainingMysteryStandard(), 0);
@@ -527,7 +844,7 @@ contract BMCIlluminatiPassTest is Test {
         _finishPhase1();
         // At most 37 Genesis outcomes: the first 38 draws must include a Standard.
         for (uint256 i = 0; i < 38; i++) {
-            uint256 id = _mintMysteryAs(alice);
+            uint256 id = _mintAndReveal(alice);
             if (pass.tierOf(id) == BMCIlluminatiPass.Tier.Standard) {
                 string memory json = _decodeTokenURI(id);
                 uint16 art = pass.artworkIdOf(id);
@@ -555,8 +872,10 @@ contract BMCIlluminatiPassTest is Test {
 
     function testFuzz_SingleRevealAlwaysInInventory(uint256 word) public {
         _finishPhase1();
-        vm.prevrandao(bytes32(word));
         uint256 id = _mintMysteryAs(alice);
+        vm.roll(block.number + 2);
+        vm.setBlockhash(block.number - 1, bytes32(word));
+        pass.reveal(1);
         BMCIlluminatiPass.Tier t = pass.tierOf(id);
         uint16 art = pass.artworkIdOf(id);
         if (t == BMCIlluminatiPass.Tier.Genesis) {
@@ -570,12 +889,22 @@ contract BMCIlluminatiPassTest is Test {
             assertEq(pass.remainingMysteryStandard(), 422);
         }
     }
-    // Audit regressions: constructor-complete metadata, no coordinator, no pending head token.
+
+    // Audit regressions: constructor-complete metadata, no coordinator, no permanently stuck head token.
     function test_AuditElevenMysteryMintsRevealWithoutAnyExternalService() public {
         _finishPhase1();
-        for (uint256 i; i < 11; ++i) {
-            uint256 id = _mintMysteryAs(i == 0 ? alice : bob);
-            assertTrue(pass.tierOf(id) != BMCIlluminatiPass.Tier.Pending);
+        uint256 head = _mintMysteryAs(alice); // never revealed by its owner
+        for (uint256 i = 1; i < 11; ++i) {
+            vm.roll(block.number + 1);
+            _mintMysteryAs(bob);
+        }
+        assertEq(pass.pendingReveals(), 11);
+        // Anyone can settle the head and everything behind it; no funding or coordinator is involved.
+        vm.roll(block.number + 2);
+        vm.prank(bob);
+        assertEq(pass.reveal(100), 11);
+        assertTrue(pass.tierOf(head) != BMCIlluminatiPass.Tier.Pending);
+        for (uint256 id = 41; id <= 51; ++id) {
             assertEq(uint8(pass.revealStatusOf(id)), uint8(BMCIlluminatiPass.RevealStatus.Revealed));
             assertGt(pass.artworkIdOf(id), 0);
         }
@@ -592,15 +921,26 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(pass.genesisImagesCID(), "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u");
         vm.startPrank(owner);
         (bool cid,) = address(pass).call(abi.encodeWithSignature("setGenesisImagesCID(string)", "malicious\"cid"));
-        (bool config,) = address(pass).call(abi.encodeWithSignature("setVRFConfig(uint256,bytes32,uint32,uint16,bool)", 1, bytes32(uint256(1)), 300000, 3, false));
+        (bool config,) = address(pass)
+            .call(
+                abi.encodeWithSignature(
+                    "setVRFConfig(uint256,bytes32,uint32,uint16,bool)", 1, bytes32(uint256(1)), 300000, 3, false
+                )
+            );
         (bool finalize,) = address(pass).call(abi.encodeWithSignature("finalizeReveals(uint256)", 10));
-        (bool callback,) = address(pass).call(abi.encodeWithSignature("rawFulfillRandomWords(uint256,uint256[])", 1, new uint256[](1)));
+        (bool callback,) =
+            address(pass).call(abi.encodeWithSignature("rawFulfillRandomWords(uint256,uint256[])", 1, new uint256[](1)));
         pass.renounceOwnership();
         vm.stopPrank();
-        assertFalse(cid); assertFalse(config); assertFalse(finalize); assertFalse(callback);
+        assertFalse(cid);
+        assertFalse(config);
+        assertFalse(finalize);
+        assertFalse(callback);
         // Even renouncing before the first mint cannot leave a CID or VRF configuration blocker.
         assertEq(_mintGenesisAs(alice), 1);
-        for (uint256 i = 1; i < 40; ++i) _mintGenesisAs(alice);
+        for (uint256 i = 1; i < 40; ++i) {
+            _mintGenesisAs(alice);
+        }
         assertEq(_mintMysteryAs(alice), 41);
     }
 
@@ -613,19 +953,21 @@ contract BMCIlluminatiPassTest is Test {
 
     function test_MysteryMetadataPermanentAcrossBlocksAndTransfers() public {
         _finishPhase1();
-        uint256 id = _mintMysteryAs(alice);
+        uint256 id = _mintAndReveal(alice);
         bytes32 metadata = keccak256(bytes(pass.tokenURI(id)));
         vm.prevrandao(bytes32(uint256(999)));
         vm.warp(block.timestamp + 1000);
         vm.roll(block.number + 100);
         vm.prank(alice);
         pass.transferFrom(alice, bob, id);
-        _mintMysteryAs(alice);
+        _mintAndReveal(alice);
         assertEq(keccak256(bytes(pass.tokenURI(id))), metadata);
     }
 
     function test_ReentrancyAcrossPhaseBoundaryRollsBackEverything() public {
-        for (uint256 i; i < 39; ++i) _mintGenesisAs(alice);
+        for (uint256 i; i < 39; ++i) {
+            _mintGenesisAs(alice);
+        }
         Reenterer receiver = new Reenterer(pass);
         receiver.setAttackGenesis(false); // Last Genesis receiver attempts the first Mystery mint.
         _fund(address(receiver), GENESIS_PRICE + MYSTERY_PRICE);
@@ -640,10 +982,12 @@ contract BMCIlluminatiPassTest is Test {
         assertEq(bmc.balanceOf(address(receiver)), GENESIS_PRICE + MYSTERY_PRICE);
     }
 
-    function test_BlockZeroDoesNotUnderflowRandomnessInput() public {
+    function test_BlockZeroMintAndRevealDoNotUnderflow() public {
         _finishPhase1();
         vm.roll(0);
         assertEq(_mintMysteryAs(alice), 41);
+        assertEq(pass.reveal(1), 0);
+        vm.roll(2);
+        assertEq(pass.reveal(1), 1);
     }
-
 }

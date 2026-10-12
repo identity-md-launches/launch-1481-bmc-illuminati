@@ -13,14 +13,38 @@ files and package/lockfiles were not changed. No launch token, pool, proxy, exte
 submodule, downloaded build dependency or `launch.json` was added. The preserved website assets
 are ordinary files already published by the requester, with no package/build changes.
 
+## Revision after independent review (2026-10-12)
+
+The accepted first round was reopened with two reproducible findings and one advisory note. Each
+was reproduced on the accepted tree before anything changed; the held proof
+`Proof_cfb1eeea80d0.t.sol` failed there (`attempts needed: 13`, Mystery Genesis #41 taken for one
+price) and passes on this tree. Answers are in `.imd-responses.json`.
+
+| Files | Change | Finding or rule |
+| --- | --- | --- |
+| `src/BMCIlluminatiPass.sol` | Mystery is now commit-reveal. `mintMystery` burns, records the mint block, issues the pass as `Tier.Pending` and no longer derives any entropy. `reveal(maxCount)`, callable by anyone, settles pending passes **in mint order** from `blockhash(mintBlock + 1)` mixed with the collection address and token id; `msg.sender`, `prevrandao` and `timestamp` are no longer inputs. The outcome therefore does not exist while the burn can still be rolled back, so observe-and-revert (contract callers), simulate-then-send (EOAs) and re-rolling by fresh helper contracts all stop working. Reverting a reveal changes nothing. | `cfb1eeea…` (high). The reviewer's minimal fix shape was followed. |
+| `src/BMCIlluminatiPass.sol` | Reveal window: the hash is read natively for 256 blocks and through the EIP-2935 history contract (`0x0000F908…2935`, mainnet since Prague) up to 8,191 blocks (~27 h). After that, or if the history contract is absent, `reveal` settles the pass as **Standard** (Genesis only when no Standard slot remains). This is the documented fallback: because waiting can only make an outcome worse, a holder gains nothing by withholding a reveal, and in-order settlement means a holder cannot time a reveal against other buyers' reveals either. Nobody can be stuck: anyone can always settle the head of the queue. | `cfb1eeea…`; keeps the imported head-of-line finding `25dd4906…` resolved. |
+| `src/BMCIlluminatiPass.sol` | Neutral "Unrevealed" on-chain metadata for pending passes; `revealStatusOf`, `pendingReveals`, `revealBlockOf`, `revealDeadlineOf`, `nextRevealId` views; `MysteryMinted` carries the reveal block and `Revealed` a `forced` flag. | Needed by the website and indexers to show the pending state honestly. |
+| `src/BMCIlluminatiPass.sol` | Launch gate: `mintingOpen` is false from construction on chain id 1 (Ethereum Mainnet and forks of it) and both mint functions revert `MintingNotOpen` until the explicit owner calls `openMinting()` once. The call is one-way: nothing can close, pause or restrict minting afterwards, and it survives `renounceOwnership`. On any other chain id the contract is open from construction, so rehearsal chains, the independent reviewer's held proof (which constructs with two arguments and mints in its `setUp`) and local tooling keep working. Constructor signature `(initialOwner, bmcToken)` is unchanged. | `b5ce1446…` (medium), option (a). Chain-scoping was required because the held proof must pass on a fresh two-argument construction; the gate is what matters on the launch chain and forks of it. |
+| `test/BMCIlluminatiPass.t.sol` | Added the selective-caller regression (Hunter/Picker, 300 in-block attempts obtain nothing and burn nothing), reveal timing/order/batching, outcome independence from caller and time (snapshot comparison), expired-window Standard fallback, Genesis-only exhaustion, EIP-2935 path via an etched mock, pending metadata neutrality and permanence, reverting-reveal no-reroll, launch-gate open/close/renounce cases and block-zero behaviour. Existing mint-out, uniqueness, reentrancy, burn, metadata and audit regressions were adapted to the two-step flow (`vm.setBlockhash` supplies the reveal hashes). | Every change is tested. |
+| `test/FactoryCompatibility.t.sol`, `test/BMCMainnetFork.t.sol` | The chain-1 rehearsal now checks the gate is closed, opens it as the owner, and (fork) reveals the real-BMC Mystery mint. Both fork tests pass against the real token at block 26,179,236. | Launch gate and reveal on the launch chain. |
+| `website/pass-abi.js` | Regenerated from the build (new ABI hash recorded in the file). | ABI changed. |
+| `website/mint-client.js` | Reads `pendingReveals()` and `mintingOpen()` with the pinned stats, reconciles pending passes into the inventory check, refuses every write while the contract is not opened, and after a Mystery mint waits for the block after the mint block, then sends `reveal(count)` as a separate wallet transaction (bounded to 50) and shows the pass as "awaiting reveal" until settled. A `reveal()` action settles anyone's pending passes; pending reveal transactions persist and recover like approvals/mints. | Website must follow the two-step contract and the on-chain gate. |
+| `website/app.js`, `website/mint/index.html` | Pending-reveal stat, "Reveal pending passes" button, "Not opened yet" phase label, Mystery copy and risk disclosure rewritten for commit-reveal (proposer bias of the reveal block, 27-hour window, Standard fallback, no preview/revert), explicit note that Mystery opens only after all 40 Genesis sell, owner power described as the one-way opening. | Honest disclosure required by the brief; advisory `7c97fe79…`. |
+| `test/website/*` | Harness models pending reveals, the gate and the reveal transaction; new client tests for the reveal flow, a reveal that stays pending, closed gate, and unreconciled pending counts; the Anvil integration opens the gate as the owner and reveals every one of the 460 Mystery passes before decoding its metadata. | Every change is tested. |
+| `README.md`, `docs/*.md`, this file | Updated to the two-step flow, the gate and the new verification results. | Required notes. |
+
+Not changed: prices, supply split, sequential Genesis phase, exact `burnFrom` verification, Standard
+on-chain art, ERC-721 behaviour, constructor arguments, build configuration and dependencies.
+
 ## Changes and reasons
 
 | Files | Change | Requirement or reproduced finding |
 | --- | --- | --- |
 | `src/BMCIlluminatiPass.sol` | Constructor reduced from three addresses to `(initialOwner, bmcToken)`. Retains explicit ownership, nonpayable construction and no constructor external calls. Validates BMC code on first mint. | Factory supports static, fully configured constructors on an empty chain; never assign ownership to factory/tx.origin. |
 | `src/BMCIlluminatiPass.sol` | Pins the supplied Genesis CID as a public constant; removes CID setter, lock and mint gates. | Known CID cannot be a dynamic factory argument; no post-deployment initialization. Fixes imported CID blocker and its JSON-injection surface. |
-| `src/BMCIlluminatiPass.sol` | Replaces VRF configuration, requests, stored words, callbacks and finalization queue with immediate block-derived draws. Retains the original O(1) Fisher-Yates inventory and metadata assignments. Removes neutral pending metadata. | Brief explicitly requires block-derived randomness instead of VRF. Fixes configuration/subscription dependency and head-of-line reveal blocking. |
-| `src/BMCIlluminatiPass.sol` | Keeps numeric tier/reveal enum values for view compatibility; `pendingReveals()` is always zero and minted tokens are immediately revealed. Mystery mint returns only token ID; its event no longer contains a request ID. | There are no asynchronous requests in the chosen design. ABI changes are intentional and regenerated. |
+| `src/BMCIlluminatiPass.sol` | Replaces VRF configuration, requests, stored words, callbacks and finalization queue with block-derived draws (first round: immediate; this revision: commit-reveal, see above). Retains the original O(1) Fisher-Yates inventory and metadata assignments. | Brief explicitly requires block-derived randomness instead of VRF. Fixes configuration/subscription dependency and head-of-line reveal blocking. |
+| `src/BMCIlluminatiPass.sol` | Keeps numeric tier/reveal enum values for view compatibility. Mystery mint returns only the token ID; its event no longer contains a request ID. (Revision: `pendingReveals()` now counts passes awaiting `reveal`.) | There are no coordinator requests in the chosen design. ABI changes are intentional and regenerated. |
 | `src/BMCIlluminatiPass.sol` | Documents manipulation risk in NatSpec. Guards block zero when reading the previous hash. | Required honest randomness disclosure; empty-chain/fuzz edge cases. |
 | `script/Deploy.s.sol` | Removes coordinator config and broadcast mode, retaining the mainnet BMC constant and explicit-owner simulation helper. | New two-argument constructor; worker must not broadcast. |
 | `test/BMCIlluminatiPass.t.sol` | Retains burn, ERC-721, artwork, cap, uniqueness and reentrancy coverage; replaces VRF-only behavior tests with immediate-reveal and immutable-CID regressions. Adds constructor, year-later liveness, metadata permanence, block-zero and cross-phase reentrancy cases. | Behavior changes are limited to requested randomness and factory/audit fixes, with corresponding tests. |
@@ -58,10 +82,13 @@ all ten later words. After advancing 2,000,000 blocks and one year, updating VRF
 calling `finalizeReveals(100)`, the result remained zero, with eleven pending tokens and 3.85M
 Mystery BMC burned. The reproduction passed against the imported implementation.
 
-Resolved by the brief-required immediate block-random draw: no pending request exists to block
-another buyer. `test_AuditElevenMysteryMintsRevealWithoutAnyExternalService`, both full mint-out
-simulations and the Anvil integration verify the replacement behavior. This removes a liveness
-dependency while accepting the weaker randomness explicitly requested; it is not a VRF repair.
+Resolved by the brief-required block-random draw: no coordinator request exists to block another
+buyer. In the revised commit-reveal flow settlement is again in mint order, but the head token can
+always be settled by anyone (from its reveal-block hash inside the window, as Standard after it),
+so no token can be stranded. `test_AuditElevenMysteryMintsRevealWithoutAnyExternalService` leaves
+the head unrevealed by its owner and has a third party settle all eleven; both full mint-out
+simulations and the Anvil integration verify the flow. This removes a liveness dependency while
+accepting the weaker randomness explicitly requested; it is not a VRF repair.
 
 ### cf3514aa88e1cf3ac7e62ad06b07fcc7d7741f8f7877253f9d49bd19b733b443 — CID setup blocker
 
@@ -128,7 +155,7 @@ security analyzer or real browser extension transaction was run; see the review 
 
 ## Verification
 
-See `docs/TEST-RESULTS.md` for commands and recorded outcomes. The runtime is 18,970 bytes under
+See `docs/TEST-RESULTS.md` for commands and recorded outcomes. The runtime is 21,458 bytes under
 the existing build settings, with two static constructor arguments. The application requires
 no network or installation to build and pass the offline tests. No scratch file is part of the
 deliverable or required to reproduce its regression tests.
