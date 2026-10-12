@@ -1,134 +1,120 @@
-# BMC Illuminati Pass (BMCPASS)
+# BMC Illuminati Pass
 
-500-piece Ethereum mainnet ERC-721 collection minted by permanently burning BMC
-(`0x38224239f2BDae357D47cb864BC533d7f72dF961`) through `burnFrom`. 77 Genesis pieces (IPFS PNG),
-423 Standard pieces (fully on-chain SVG). Mystery outcomes are drawn without replacement using
-Chainlink VRF v2.5.
+A 500-piece Ethereum ERC-721 collection minted by permanently burning the existing BMC token,
+`0x38224239f2BDae357D47cb864BC533d7f72dF961`, through `burnFrom`.
 
-**Status: not deployed.** Nothing in this repository broadcasts a transaction, pays a service, or
-requests a token approval. Mainnet deployment needs the owner's explicit authorization after review.
+**Pre-launch only. No NFT address is configured, no deployment has been made, and public minting
+has not been authorized.** Wallet connection, BMC balance reads and artwork previews work in
+pre-launch mode. The shipped website cannot request an approval or mint transaction.
 
-## Layout
+## Existing website and new mint page
 
-| Path | What |
-| --- | --- |
-| `src/BMCIlluminatiPass.sol` | The collection contract (ERC721 + Ownable + ReentrancyGuard, VRF v2.5 consumer). |
-| `src/StandardArt.sol` | Internal library rendering the 423 Standard SVGs and their traits. |
-| `src/interfaces/IBMCToken.sol` | Minimal BMC interface (`burnFrom`, `decimals`, ...). |
-| `script/Deploy.s.sol` | Deployment script; mainnet addresses are constants, owner is the only input. |
-| `test/` | Foundry tests (43), including a run against Chainlink's official `VRFCoordinatorV2_5Mock`. |
-| `artwork/genesis/` | The 77 Genesis PNGs (1024x1024), `genesis-01.png` .. `genesis-77.png`. |
-| `artwork/tools/generate_genesis.py` | Deterministic generator for the Genesis PNGs (Pillow). |
-| `website/` | Static mint site "bmc-pass" (no build step, no dependencies). |
-| `docs/SECURITY-REVIEW.md` | Security review findings and open items. |
-| `docs/TEST-RESULTS.md` | Recorded `forge test` output. |
-| `lib/` | Vendored dependencies as plain files: OpenZeppelin 5.1.0, forge-std 1.9.6, Chainlink contracts 1.4.0 (VRF v2.5 subset). |
+`website/index.html` preserves the published BMC Illuminati homepage from
+<https://bmc-illuminati-know-create-burn.sites.imd.fun/>. Its original compiled application,
+stylesheet, icons and social image are included unchanged as ordinary files. The live site's
+editable React source was not in this checkout. `docs/website-preservation.json` records the
+source and SHA-256 hashes. No package installation or rebuild of that application is needed.
 
-## Pre-deployment checks performed (IMD free check, 2026-10-12)
+A small separate `mint-nav.js` adds **MINT BMC PASS** to the existing header, including mobile.
+The existing home, PASS information, swap, staking, burn, dashboard and community routes and
+functionality remain in the original application. `website/mint/index.html` is the new `/mint/`
+page; ordinary static servers redirect `/mint` to `/mint/`.
 
-| Check | Result |
-| --- | --- |
-| BMC `decimals()` | 18 (read on mainnet). The contract re-checks on every mint and reverts otherwise. |
-| BMC `burnFrom` | Selector `0x79cc6790` present in the deployed, non-proxy bytecode (EIP-1967 slot empty); OpenZeppelin `ERC20Burnable` semantics assumed: spend allowance, then burn. The contract verifies after each call that `totalSupply` and the payer balance both dropped by exactly the price. |
-| BMC owner / pause | No `owner()` or `paused()` function responds. |
-| Chainlink VRF v2.5 coordinator | `0xD7f86b4b8Cae7D942340FF628F82735b7a20893a` has code and reports `LINK() == 0x514910771AF9Ca656af840dff83E8264EcF986CA`. |
-| Genesis images CID | **Blocker until set.** Must be produced by uploading `artwork/genesis/` to IPFS. Set once on-chain via `setGenesisImagesCID`; minting is impossible before. |
-| VRF subscription | **Blocker until created.** Needs a funded VRF v2.5 subscription with the pass added as consumer; set via `setVRFConfig`. |
-| Image generation | Available: Pillow generated the 77 originals deterministically. |
+Serve `website/` as the document root, without a build step:
 
-The `burnFrom` behaviour could not be exercised against the live token from this environment (no
-funded account); the on-chain mismatch guard makes a wrong assumption fail closed rather than mint.
+```sh
+python3 -m http.server 8080 --directory website
+```
 
-## Mint mechanics
+Open `/` for the preserved site or `/mint/` for the new mint page. Publish the whole `website/`
+directory together when authorized; do not replace it with only the mint HTML. No hosted site
+was changed by this assignment.
 
-- **Phase 1, ids 1-40.** `mintGenesis()` burns 1,000,000 BMC and mints the next id. Id 1 is
-  Legendary Genesis; ids N get `genesis-NN.png`. Strictly sequential.
-- **Phase 2, ids 41-500.** `mintMystery()` burns 350,000 BMC, mints a pending-reveal NFT and opens
-  one VRF request. Price is identical whatever the result.
-- **Reveal.** The coordinator calls `rawFulfillRandomWords`; the word is stored, then a gas-aware
-  batch of reveals runs. Reveals are finalized **in mint order** (41, 42, ...) by anyone through
-  `finalizeReveals(maxCount)`. In-order finalization means nobody can influence an outcome by
-  choosing the order in which concurrently pending tokens are drawn.
-- **Draw.** Virtual Fisher-Yates over 460 slots (37 Genesis `genesis-41..77`, 423 Standard), O(1)
-  per draw. Every outcome is assigned exactly once by full mint-out.
-- **Tier storage.** Tier and artwork id are stored per token; nothing is inferred from token id.
-- **Totals.** 40 x 1,000,000 + 460 x 350,000 = 201,000,000 BMC maximum burned.
+The new page supports MetaMask and EIP-1193 wallets, with EIP-6963 discovery for multiple injected
+wallets. It never requests a seed phrase, private key, login signature, or automatic transaction.
+It provides account/chain changes, wrong-network warnings, exact-price approvals, transaction
+progress, Etherscan links, pending-transaction recovery, minted NFT display and NFT lookup.
 
-Public views: `ownerOf`, `tierOf`, `artworkIdOf`, `revealStatusOf`, `totalMinted`, `totalSupply`,
-`remainingSupply`, `remainingMysteryMints`, `pendingReveals`, `remainingMysteryGenesis`,
-`remainingMysteryStandard`, `currentPrice`, `totalBurned`, `tokenURI`, `standardSVG`.
+## Collection behavior
 
-## Unavailable randomness
+- **Genesis, token IDs 1–40:** sequential artwork IDs 1–40; #1 Legendary Genesis, #2–40 Early
+  Genesis. Each mint burns exactly 1,000,000 BMC.
+- **Mystery, token IDs 41–500:** each mint burns exactly 350,000 BMC and immediately draws one
+  outcome without replacement from 37 Genesis artworks (#41–77) and 423 Standard artworks.
+- **Randomness risk:** the draw uses `prevrandao`, previous block hash, timestamp, the collection
+  address, buyer address and token ID. It is **not cryptographically manipulation-resistant**.
+  Builders/validators can influence inclusion/ordering; callers can simulate outcomes and
+  contract receivers can revert unwanted results. Uniqueness does not guarantee fair allocation.
+  This is the requested block-random design, not Chainlink VRF or the deterministic branch.
+- **Artwork:** Genesis uses the requester's immutable CID
+  `bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u`, with filenames
+  `genesis-01.png` through `genesis-77.png`. All 77 PNGs were fetched and validated; the full report
+  is `docs/genesis-verification.json`. Nothing substitutes local artwork for missing IPFS files.
+  Standard artwork and JSON metadata are rendered on-chain using the existing `StandardArt` library.
+- **Burn:** both payer balance and BMC total supply must decrease by the exact price, or the entire
+  mint reverts. No BMC is transferred to a developer or retained by the NFT contract. Maximum burn
+  is 201,000,000 BMC. The contract rechecks BMC's 18 decimals on every mint.
 
-A pending token stays pending until its original request is fulfilled. There is no reroll,
-re-request or fallback. Chainlink VRF v2.5 keeps a request pending while the subscription is
-unfunded and fulfils it after funding, which anyone can do. The owner changing `setVRFConfig`
-cannot touch open requests. If the coordinator were permanently decommissioned, affected tokens
-would remain pending forever; this is a stated trust dependency on Chainlink, not a hidden one.
+The initial owner has no privileged mint, metadata, randomness, pricing, withdrawal, pause or
+upgrade power. Standard inherited ownership transfer/renunciation remains, without operational
+powers. ERC-721 transfers, approvals and metadata views retain their existing behavior.
 
-## Privileged powers and operational responsibilities
+## Factory handoff
 
-| Power | Who | Effect | Limits |
-| --- | --- | --- | --- |
-| `setGenesisImagesCID(cid)` | owner, once | Sets the IPFS directory for Genesis images. | Cannot be changed afterwards; no mint is possible before it is set. |
-| `setVRFConfig(subId, keyHash, callbackGas, confirmations, nativePayment)` | owner, any time | Parameters for **future** VRF requests. | Bounded (gas 150k-2.5M, confirmations 3-200). Cannot affect stored randomness or revealed tokens. A bad config only blocks new mystery mints until corrected. |
-| VRF subscription admin | subscription owner on the Chainlink coordinator | Add/remove the pass as consumer, fund with LINK or ETH. | Removing the consumer or defunding blocks new requests / delays fulfilment. Anyone can fund. |
-| `transferOwnership` / `renounceOwnership` | owner | Standard OpenZeppelin Ownable. | Renouncing freezes the VRF config forever. |
+Only `BMCIlluminatiPass` is an application contract to deploy. Constructor:
+`(address initialOwner, address bmcToken)`, nonpayable, two static arguments.
 
-There is no owner mint, airdrop, artwork assignment, metadata edit, price change, pause,
-withdrawal or upgrade path. The contract is not a proxy. The coordinator address is immutable.
+- `initialOwner`: `$owner`, resolving to the supplied owner
+  `0x83027AD9d0D5374335086c539dADD1db983441B0`.
+- `bmcToken`: the existing mainnet BMC address above.
 
-## Deployment (do not run without explicit authorization)
+The constructor makes no external calls and does not require token code on the empty rehearsal
+chain. The token is checked on first mint. All parameters are configured at construction; no
+setter/initializer calls follow deployment. `StandardArt` has only internal functions and needs
+no linked-library deployment. No launch token, pool, proxy or manifest was added.
 
-Constructor: `(address initialOwner, address bmcToken, address vrfCoordinator)`.
-Mainnet values: BMC `0x38224239f2BDae357D47cb864BC533d7f72dF961`,
-coordinator `0xD7f86b4b8Cae7D942340FF628F82735b7a20893a`.
+`script/Deploy.s.sol` is now a simulation helper; it does not start a broadcast. The launch
+factory handles any separately authorized deployment. On-chain mint functions are permissionless
+once deployed: the website's launch controls govern its interface, not direct contract calls.
+Do not deploy merely to preview this website.
 
-```bash
+## Launch authorization
+
+Follow `docs/LAUNCH.md` before changing `website/config.js`. An address alone cannot enable
+minting. Obtain the finalized source repository/revision for the chosen block-random design and
+the actual mainnet deployment address from the requester/deployer. Confirm its ABI, review and
+runtime bytecode, explorer verification, deployed mint/burn validation and explicit public-mint
+authorization. The deterministic development branch is a different design and is not used here.
+
+`pass-abi.js` and `bmc-abi.js` are generated from the local Foundry build. They are candidate build
+artifacts, **not claims of a verified mainnet deployment**. The live gate requires the confirmed
+ABI hash, and each mint checks the actual deployed runtime against the reviewed runtime hash.
+
+## Checks
+
+No new build dependencies were introduced. Use the existing Foundry configuration:
+
+```sh
 forge build
 forge test
-OWNER=0xYourOwner forge script script/Deploy.s.sol:DeployBMCIlluminatiPass \
-  --rpc-url $ETH_RPC --account <keystore> --broadcast --verify
+python3 script/export_website_abi.py --check
+node --test test/website/*.test.cjs
+python3 -m unittest discover -s test/tools -p 'test_*.py'
 ```
 
-Verify source on Etherscan (`forge verify-contract`) before announcing.
+The JavaScript tests use Node built-ins; their contract integration test starts isolated Anvil
+on a free loopback port, without network access, keys or broadcasts. Run `forge build` first so
+its artifacts exist. The two mainnet-fork tests explicitly skip on an empty offline chain and
+are also checked separately against the real BMC token:
 
-### After launch (owner, in this order)
-
-1. **Upload artwork.** Pin `artwork/genesis/` (77 files) as one IPFS directory. Record its CID.
-   Check `ipfs://<CID>/genesis-01.png` resolves on at least two gateways.
-2. **Set the CID.** `setGenesisImagesCID("<CID>")` once. Minting opens only after this.
-3. **Create a VRF v2.5 subscription** at vrf.chain.link (mainnet), fund it (LINK or ETH), add the
-   pass address as a consumer.
-4. **Set VRF config.** `setVRFConfig(subscriptionId, keyHash, 500000, 3, nativePayment)`.
-   Key hash is the gas lane you choose from Chainlink's published mainnet lanes (e.g. the 200/500/1000 gwei lanes);
-   500k callback gas lets each callback finalize up to 4 reveals. `nativePayment=true` if funded with ETH.
-5. **Website.** Put the pass address in `website/config.js` (`PASS_ADDRESS`) and host `website/`
-   with `artwork/` beside it (or point the gallery at IPFS).
-6. Keep the subscription funded: 460 requests at mainnet VRF prices. Monitor
-   `pendingReveals()`; anyone can call `finalizeReveals(n)` if a callback left stored words.
-
-## Website (bmc-pass)
-
-Static files, no build. Connects MetaMask/Rabby over EIP-1193, encodes calls locally (selectors
-computed with an inline keccak-256). Shows BMC balance and allowance, phase, price, remaining
-supply, total burned, remaining-inventory odds (marked provisional while reveals are pending),
-Genesis #1 showcase, preview gallery, reveal lookup, Etherscan links, and explanations of gas,
-burning and VRF delays. Two-step approve-then-mint with exact amounts (no infinite approvals).
-
-## Assumptions
-
-- BMC `burnFrom` follows OpenZeppelin `ERC20Burnable` (verified by selector and non-proxy code;
-  guarded on-chain by exact supply/balance deltas).
-- 18 decimals, prices expressed as `1_000_000e18` and `350_000e18`.
-- Chainlink mainnet VRF v2.5 coordinator and key hashes per Chainlink documentation; the owner
-  chooses the gas lane.
-- Modulo bias of `word % remaining` with a 256-bit word and `remaining <= 460` is negligible (< 2^-247).
-- The artwork is original generated vector-style cartoon art; it is not derived from any existing character.
-
-## Testing
-
-```bash
-forge build && forge test && forge fmt --check
-python3 artwork/tools/generate_genesis.py artwork/genesis   # regenerates identical PNGs
+```sh
+forge test --match-contract BMCMainnetForkTest \
+  --fork-url http://127.0.0.1:40277/rpc/1 --fork-block-number 26179236 -vv
 ```
+
+The above RPC is specific to this contributor machine; it is not part of the public website.
+For a fresh artwork availability report, run `python3 script/verify_genesis.py` while online.
+The build and offline tests use the checked-in report and never fetch artwork or dependencies.
+
+See `ADAPTATION.md` for every adaptation and audit disposition, `docs/SECURITY-REVIEW.md` for
+remaining risks and `docs/TEST-RESULTS.md` for verification results and limits.

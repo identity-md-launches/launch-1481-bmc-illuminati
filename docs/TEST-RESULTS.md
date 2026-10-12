@@ -1,57 +1,73 @@
-# Foundry test results
+# Adaptation verification results
 
-Recorded 2026-10-12 with forge 1.8.3, solc 0.8.26 (`forge test`, default profile, fuzz runs 64).
+Checked locally on 2026-10-12 UTC (2026-10-13 in Europe/Berlin for the final run).
+Foundry 1.8.3, Solidity 0.8.26, the project's existing configuration, Node 24.21.0 and Python 3.13.5.
+No new build dependency, external package installation or network-dependent offline test was added.
+These are contributor checks, not independent audit approval or deployment authorization.
 
-```
-No files changed, compilation skipped
-Ran 4 tests for test/ChainlinkMockIntegration.t.sol:ChainlinkMockIntegrationTest
-[PASS] test_NotAConsumerReverts() (gas: 369271)
-[PASS] test_RequestAndFulfilThroughChainlinkMock() (gas: 759243)
-[PASS] test_SeveralRequestsOutOfOrderThroughChainlinkMock() (gas: 1890718)
-[PASS] test_UnfundedSubscriptionKeepsTokenPendingUntilFunded() (gas: 949212)
-Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 14.89ms (3.25ms CPU time)
-Ran 39 tests for test/BMCIlluminatiPass.t.sol:BMCIlluminatiPassTest
-[PASS] testFuzz_SingleRevealAlwaysInInventory(uint256) (runs: 64, μ: 11045582, ~: 11043499)
-[PASS] test_CIDSetOnce() (gas: 176633)
-[PASS] test_CallbackBatchIsGasAware() (gas: 12140393)
-[PASS] test_Constants() (gas: 82402)
-[PASS] test_DeployScriptConfig() (gas: 10655354)
-[PASS] test_DeployScriptRequiresOwner() (gas: 5700916)
-[PASS] test_ExcessAllowanceOnlyBurnsPrice() (gas: 343854)
-[PASS] test_FinalizationOrderCannotBeChosen() (gas: 12020044)
-[PASS] test_FirstMinterGetsLegendaryGenesis1() (gas: 2027697)
-[PASS] test_FulfillRevealsAndLocksMetadata() (gas: 17335801)
-[PASS] test_Full500MintSimulation() (gas: 269030345)
-[PASS] test_FullMintOutWithInOrderFulfillment() (gas: 235375333)
-[PASS] test_GenesisRevertsAfterPhase1() (gas: 10618021)
-[PASS] test_Mints2To40AreSequentialGenesis() (gas: 14434063)
-[PASS] test_MysteryBurnRevertsIfVRFRequestFails() (gas: 10752056)
-[PASS] test_MysteryRevertsDuringPhase1() (gas: 460015)
-[PASS] test_MysteryRevertsWhenVRFUnconfigured() (gas: 10677451)
-[PASS] test_NoOwnerMintOrWithdrawSurface() (gas: 87601)
-[PASS] test_OnlyCoordinatorCanFulfill() (gas: 10961327)
-[PASS] test_OutOfOrderFulfillmentFinalizesInMintOrder() (gas: 12222761)
-[PASS] test_PendingMetadataIsNeutral() (gas: 13645572)
-[PASS] test_PermissionlessFinalizationWhenCallbackGasTooLow() (gas: 11129061)
-[PASS] test_Phase1CostsExactlyOneMillion() (gas: 392359)
-[PASS] test_Phase2CostsExactly350k() (gas: 11016795)
-[PASS] test_ReentrancyGenesisBlocked() (gas: 895572)
-[PASS] test_ReentrancyMysteryBlocked() (gas: 11439483)
-[PASS] test_RevertInsufficientAllowance() (gas: 181320)
-[PASS] test_RevertInsufficientBalance() (gas: 195192)
-[PASS] test_RevertNoAllowance() (gas: 146266)
-[PASS] test_RevertWhenTokenDecimalsUnexpected() (gas: 810941)
-[PASS] test_RevertWhenTokenDoesNotActuallyBurn() (gas: 827407)
-[PASS] test_StandardArtCombinationsUnique() (gas: 1482850)
-[PASS] test_StandardArtCoversEveryTrait() (gas: 743721)
-[PASS] test_StandardArtRendersWithoutGenesisTraits() (gas: 30070221)
-[PASS] test_StandardMetadataAfterReveal() (gas: 20024385)
-[PASS] test_TransfersAreStandard() (gas: 471691)
-[PASS] test_UnavailableRandomnessStaysPendingNoFallback() (gas: 11056275)
-[PASS] test_VRFConfigValidation() (gas: 252736)
-[PASS] test_ViewsRevertForNonexistent() (gas: 33573)
-Suite result: ok. 39 passed; 0 failed; 0 skipped; finished in 323.95ms (1.25s CPU time)
-Ran 2 test suites in 325.44ms (338.84ms CPU time): 43 tests passed, 0 failed, 0 skipped (43 total tests)
-```
+| Check | Result |
+| --- | --- |
+| `forge build` | PASS. No configuration/dependency changes. |
+| `forge build --sizes` | `BMCIlluminatiPass`: runtime 18,970 bytes; initcode 19,849 bytes before two constructor words. EIP-170 margin 5,606 bytes. |
+| `forge test` | PASS: 34 tests, 0 failures, 2 explicitly skipped mainnet-fork cases on the empty offline chain. Includes 64 fuzz cases under the existing configuration. |
+| Supplied `Contracts.protected.t.sol` | PASS: exact protected harness copied temporarily into scratch, supplied with locally derived CREATE2 arguments. Constructor, runtime presence/size and forbidden-opcode check all pass. No manifest written. |
+| `forge test --match-contract BMCMainnetForkTest --fork-url http://127.0.0.1:40277/rpc/1 --fork-block-number 26179236 -vv` | PASS: both Genesis and Mystery tests against the real BMC token. Only the local fork's test buyer balance was adjusted; no mainnet transactions. |
+| `node --test test/website/*.test.cjs` | PASS: 33 tests, 0 failures. Includes an isolated Anvil full 500-mint integration, about 17 seconds. |
+| `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s test/tools -p 'test_*.py'` | PASS: 3 tests. Artwork report/PNG corruption cases and actual localhost HTTP routes/assets. |
+| `python3 script/export_website_abi.py --check` | PASS: checked-in NFT and BMC ABIs/selectors exactly match the Foundry build. |
+| `python3 script/verify_genesis.py` | PASS: 77/77 HTTP GETs returned valid PNGs with expected filenames. `docs/genesis-verification.json` records status, content type, byte count, dimensions and unique SHA-256 for every file. Network only for this explicit verification command. |
+| Homepage preservation | PASS: original compiled JS/CSS, icons and OG image hashes match. Removing only the two new navigation tags from the delivered root HTML reproduces the original HTML hash. |
+| `node --check` for authored browser scripts | PASS. |
+| `git diff --check` | PASS. |
 
-Contract size (`forge build --sizes`): BMCIlluminatiPass runtime 23,529 bytes, 1,047 bytes under the EIP-170 limit.
+## Application regressions covered
+
+- Explicit owner supplied by the factory; nonpayable/static constructor deploys without BMC code.
+- Known immutable CID, no remaining setter/VRF callback/finalization configuration surface, and
+  both phases continue even if ownership is renounced before the first mint.
+- Eleven Mystery buyers all receive final outcomes immediately, without a coordinator or a
+  timeout/funding dependency. A later mint still works after a year/block advance.
+- Exactly 40 sequential Genesis mints, Legendary #1, then 460 Mystery mints; phase/sold-out
+  boundaries, correct prices, exact allowance consumption, BMC balance and total-supply burns.
+- Reentrant receiver failures, including a call across the Genesis/Mystery boundary, roll back
+  the entire mint/burn. Wrong-decimal and fake-burning tokens are rejected.
+- Inventory uniqueness and complete 77 Genesis/423 Standard allocation; full sellout under
+  changing entropy and repeated same-block minting. Metadata persists across blocks/transfers.
+- Existing StandardArt uniqueness, trait coverage, SVG generation and ERC-721 transfer behavior.
+- Empty-chain dependency use fails clearly and block zero does not underflow hash selection.
+
+## Website regressions covered
+
+- Shipped pre-launch state permits wallet connection and BMC balance reads, with no write even
+  when disabled click handlers are invoked directly. Merely adding an NFT address is insufficient.
+- Every independent live-gate field is required; empty/zero/dead/BMC addresses and deterministic
+  design markers are rejected. Bytecode, token decimals and inconsistent contract state fail closed.
+- Wrong chains, account/chain/disconnect changes, connection refusal, overlapping wallet events
+  and a closed connection cannot accidentally resume a mint.
+- Exact single-price approval, confirmation before mint, sufficient allowance skipping approval,
+  failed/rejected/reverted/pending approval stopping mint, and changed phase/balance/bytecode
+  after approval stopping the flow.
+- Pending state survives a page-instance reload through browser storage; rechecks send no new
+  transaction. Reorged receipts remain pending. Double-clicks cannot start concurrent flows.
+- Mint outcomes come from real receipt logs; safe tokenURI decoding handles both IPFS PNGs and
+  base64 on-chain SVGs. Unsafe metadata URLs are rejected without a substituted image.
+- Gas-estimation headroom covers the normal more-expensive Mystery storage branch, which was
+  encountered in local full-sellout testing.
+- The full Anvil integration uses actual compiled bytecode, the generated ABI and browser mint
+  client for both phases. It mints all 500, decodes every Mystery artwork URI, observes 37 distinct
+  Mystery Genesis PNGs and 423 distinct Standard SVGs, and confirms 201,000,000 BMC removed from
+  supply with no BMC retained by the NFT contract.
+- All 77 preview URLs, image error disclosure, initial disabled buttons, navigation injection,
+  preserved existing routes/assets and `/mint` → `/mint/` HTTP resolution.
+
+## Limits
+
+No actual mainnet NFT address exists in this delivery. Mainnet NFT verification, deployed runtime
+comparison, validation of that future deployment and public-mint approval are pending. The BMC
+fork tests validate the real payment token's behavior, not a deployed NFT collection.
+
+The tests used simulated EIP-1193 providers and local Anvil accounts, not a real MetaMask extension
+or a user's account. No pixel/visual browser test, mobile wallet app test, Slither or Mythril run
+was performed. DOM/HTTP tests do not prove browser layout or wallet-vendor compatibility. IPFS
+availability is a point-in-time observation. The deliberate block-randomness manipulation risk is
+not fixed by passing these tests. No live site publication or paid service was executed.

@@ -16,27 +16,20 @@ contract BMCMainnetForkTest is Test {
     address constant BMC =
         0x38224239f2BDae357D47cb864BC533d7f72dF961;
 
-    address constant VRF =
-        0xD7f86b4b8Cae7D942340FF628F82735b7a20893a;
-
     uint256 constant PRICE = 1_000_000e18;
 
     address buyer = address(0xBEEF);
 
     function test_RealBMCGenesisMint() public {
+        vm.skip(block.chainid != 1 || BMC.code.length == 0);
         require(block.chainid == 1, "Ethereum mainnet fork required");
         require(BMC.code.length > 0, "BMC contract missing");
-        require(VRF.code.length > 0, "VRF coordinator missing");
 
         IRealBMC token = IRealBMC(BMC);
         assertEq(token.decimals(), 18);
 
         BMCIlluminatiPass pass =
-            new BMCIlluminatiPass(address(this), BMC, VRF);
-
-        pass.setGenesisImagesCID(
-            "bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u"
-        );
+            new BMCIlluminatiPass(address(this), BMC);
 
         // Test-only balance adjustment on the local fork.
         deal(BMC, buyer, PRICE, true);
@@ -55,5 +48,29 @@ contract BMCMainnetForkTest is Test {
         assertEq(pass.totalBurned(), PRICE);
         assertEq(token.balanceOf(buyer), 0);
         assertEq(token.totalSupply(), supplyBefore - PRICE);
+    }
+
+    function test_RealBMCMysteryMint() public {
+        vm.skip(block.chainid != 1 || BMC.code.length == 0);
+        IRealBMC token = IRealBMC(BMC);
+        BMCIlluminatiPass pass = new BMCIlluminatiPass(address(this), BMC);
+        uint256 cost = 40 * PRICE + 350_000e18;
+        deal(BMC, buyer, cost, true);
+        uint256 supplyBefore = token.totalSupply();
+        vm.startPrank(buyer);
+        for (uint256 i; i < 40; ++i) {
+            token.approve(address(pass), PRICE);
+            pass.mintGenesis();
+        }
+        token.approve(address(pass), 350_000e18);
+        uint256 id = pass.mintMystery();
+        vm.stopPrank();
+        assertEq(id, 41);
+        assertEq(pass.ownerOf(id), buyer);
+        assertEq(pass.totalBurned(), cost);
+        assertEq(pass.pendingReveals(), 0);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(pass)), 0);
+        assertEq(token.totalSupply(), supplyBefore - cost);
     }
 }

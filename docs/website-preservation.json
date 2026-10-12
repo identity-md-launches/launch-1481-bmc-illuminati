@@ -1,0 +1,33 @@
+{
+  "source": "https://bmc-illuminati-know-create-burn.sites.imd.fun/",
+  "retrievedAt": "2026-10-12T22:11:11.099773+00:00",
+  "originalIndexSha256": "ef8fda9066fbae490609dd6198e3162c370b363503fc1bf47f5251c10ce6e1df",
+  "preservedAssets": [
+    {
+      "path": "assets/index-C3VUAmkN.js",
+      "sha256": "c1aef3577f34300268ce1697a7f5db6050a0b8af2537f4f2e4ff9c8f72a64673",
+      "bytes": 455117
+    },
+    {
+      "path": "assets/index-CPnoBN9P.css",
+      "sha256": "caf4f8bf160573b55d69a3adf17f1aa685ee41e126f40c6cea61bcc8f9facea7",
+      "bytes": 20642
+    },
+    {
+      "path": "favicon.svg",
+      "sha256": "2d77d5a92e0e5b4aadbdbc5d74e595726ac3b867635d4058d76f9d00fb603aaa",
+      "bytes": 360
+    },
+    {
+      "path": "favicon-32.png",
+      "sha256": "e9b839f0cc3ced736181e5fa75186bedf249f21ff412374f3351562aa193ab23",
+      "bytes": 1346
+    },
+    {
+      "path": "og.png",
+      "sha256": "04139c147f5230f6c941f6cabbf1f58c2e4962718cf6727d9d07ad40a136fd95",
+      "bytes": 47589
+    }
+  ],
+  "integration": "Original index.html preserved with two added tags: mint-nav.css and mint-nav.js. Original compiled application and assets unmodified; new page at /mint/."
+}
