@@ -82,6 +82,7 @@ test('Mystery uses exact 350k approval, its own mint ABI, then a separate reveal
  const {client,provider,events}=fixture();provider.minted=40n;await client.connect(provider);await client.mint('mystery');
  assert.equal(BigInt('0x'+provider.sent[0].data.slice(74)),API.MYSTERY);
  assert.equal(provider.sent[1].data,'0x9aa0c9be');assert.equal(client.state.minted.id,41n);
+ assert.equal(provider.sent.length,2,'reveal must never start automatically');await client.reveal();
  assert.equal(provider.sent.length,3);assert.equal(provider.sent[2].to,PASS);
  assert.equal(provider.sent[2].data,API.calldata(BUILD,'reveal(uint256)',[1n]));
  assert.equal(provider.pendingCount,0n);assert.equal(client.state.minted.pending,false);assert.equal(client.state.pending,null);
@@ -90,7 +91,7 @@ test('Mystery uses exact 350k approval, its own mint ABI, then a separate reveal
 test('a reveal that stays pending leaves the pass marked unrevealed and locks the page without resending',async()=>{
  const {client,provider,storage,config}=fixture();provider.minted=40n;provider.allowance=API.MYSTERY;await client.connect(provider);
  provider.onReceipt=stage=>{if(stage==='mint')provider.pending=true;};
- await assert.rejects(()=>client.mint('mystery'),/still pending/);
+ await client.mint('mystery');await assert.rejects(()=>client.reveal(),/still pending/);
  assert.equal(provider.sent.length,2);assert.equal(client.state.pending.stage,'reveal');assert.equal(client.state.pending.tokenId,'41');
  assert.equal(client.state.minted.pending,true);assert.ok(client.state.minted.metadata);
  await assert.rejects(()=>client.mint('mystery'),/already in progress/);await assert.rejects(()=>client.reveal(),/already in progress/);
@@ -186,4 +187,57 @@ test('mint-client public API still refuses the retired VRF finalization ABI',()=
 test('gas estimate includes room for a different next-block Mystery storage branch',async()=>{
  const {client,provider}=fixture();provider.minted=40n;await client.connect(provider);await client.mint('mystery');
  const tx=provider.sent.find(t=>t.stage==='mint');assert.ok(BigInt(tx.gas)>=BigInt('0x60000')+50000n);
+});
+
+test('in-page review is mandatory, contains the exact spender/value/fee, and cancellation never sends',async()=>{
+ let review;
+ const {client,provider}=fixture(undefined,{confirmTransaction:async tx=>{review=tx;return false;}});
+ await client.connect(provider);await assert.rejects(()=>client.mint('genesis'),/review cancelled/);
+ assert.equal(provider.sent.length,0);assert.equal(review.stage,'approval');assert.equal(review.amount,API.GENESIS);
+ assert.equal(review.to,API.BMC);assert.equal(review.spender,PASS);assert.equal(review.from,ACCOUNT);assert.equal(review.value,0n);
+ assert.equal(review.chainId,1);assert.ok(review.estimatedFee>0n);
+});
+test('missing review handler defaults to deny, even with a fully authorized fixture',async()=>{
+ const {client,provider}=fixture();client.confirmTransaction=async()=>false;
+ await client.connect(provider);await assert.rejects(()=>client.mint('genesis'),/review cancelled/);assert.equal(provider.sent.length,0);
+});
+test('source/request address conflict denies LIVE even if every other launch field is affirmative',()=>{
+ assert.equal(API.configuredLive({...liveConfig(),DEPLOYMENT_CONFLICT:true},BUILD),false);
+});
+test('changing network, account, code or phase during the review stops the send',async()=>{
+ for(const change of [p=>p.chain='0x38',p=>p.account=OTHER,p=>p.code='0x1234',p=>p.minted=40n]){
+  let provider;const f=fixture(undefined,{confirmTransaction:async()=>{change(provider);return true;}});provider=f.provider;
+  await f.client.connect(provider);await assert.rejects(()=>f.client.mint('genesis'));assert.equal(provider.sent.length,0);
+ }
+});
+test('Mystery never requests a reveal until the visitor asks separately',async()=>{
+ const {client,provider}=fixture();provider.minted=40n;provider.allowance=API.MYSTERY;
+ await client.connect(provider);await client.mint('mystery');assert.equal(provider.sent.length,1);
+ assert.equal(client.state.minted.pending,true);await client.reveal();assert.equal(provider.sent.length,2);
+ assert.equal(client.state.minted.pending,false);
+});
+test('lost send response persists an unresolved lock across reloads and never silently retries',async()=>{
+ const f=fixture(),original=f.provider.request.bind(f.provider);
+ f.provider.request=async args=>{if(args.method==='eth_sendTransaction'){await original(args);throw new Error('Transport closed after broadcast');}return original(args);};
+ await f.client.connect(f.provider);await assert.rejects(()=>f.client.mint('genesis'),/outcome unknown/);
+ assert.equal(f.provider.sent.length,1);assert.equal(f.client.state.pending.uncertain,true);
+ const restored=fixture(f.config,{storage:f.storage}).client;await restored.connect(f.provider);
+ await assert.rejects(()=>restored.mint('genesis'),/already in progress/);await assert.rejects(()=>restored.checkPending(),/No transaction hash/);
+ assert.equal(f.provider.sent.length,1);
+});
+test('reload while the wallet prompt is open retains a submission lock; explicit rejection clears it',async()=>{
+ const f=fixture(),original=f.provider.request.bind(f.provider);
+ let rejectPrompt,entered;
+ const opened=new Promise(resolve=>{entered=resolve;});
+ f.provider.request=args=>args.method==='eth_sendTransaction'?new Promise((_,reject)=>{rejectPrompt=reject;entered();}):original(args);
+ await f.client.connect(f.provider);
+ const first=f.client.mint('genesis');
+ const stopped=assert.rejects(first,{code:4001});
+ await opened;
+ const restored=fixture(f.config,{storage:f.storage}).client;await restored.connect(f.provider);
+ await assert.rejects(()=>restored.mint('genesis'),/already in progress/);
+ assert.equal(restored.state.pending.uncertain,true);assert.equal(f.provider.sent.length,0);
+ rejectPrompt(Object.assign(new Error('User rejected'),{code:4001}));await stopped;
+ assert.equal(f.client.state.pending,null);
+ assert.equal(fixture(f.config,{storage:f.storage}).client.state.pending,null);
 });

@@ -3,135 +3,103 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#05070b">
-<meta name="description" content="BMC Illuminati Pass: 500 Ethereum collectibles minted by permanently burning BMC. Coming soon.">
-<title>MINT BMC PASS — BMC Illuminati</title>
-<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<meta name="theme-color" content="#090909">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://silver-active-lungfish-941.mypinata.cloud; connect-src https://ethereum-rpc.publicnode.com https://eth.drpc.org; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="description" content="Explore 500 BMC Illuminati Pass collectibles on Ethereum. Connect your wallet, read the collection and review the exact BMC burn before minting opens.">
+<meta property="og:title" content="Mint BMC Pass | BMC Illuminati">
+<meta property="og:description" content="500 Passes. Genesis art on IPFS, Standard art on-chain. Read-only until launch approval.">
+<meta property="og:image" content="../og.png">
+<meta property="og:type" content="website">
+<title>Mint BMC Pass | BMC Illuminati</title>
+<link rel="icon" type="image/svg+xml" href="../favicon-gold.svg">
 <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to mint details</a>
 <header class="top">
-  <a class="brand" href="../" aria-label="BMC Illuminati home">
-    <span class="sigil" aria-hidden="true">&#9651;</span>
-    <span><strong>BMC ILLUMINATI</strong><small>KNOW • CREATE • BURN • RISE</small></span>
-  </a>
-  <nav class="row" aria-label="Main navigation">
-    <a href="../">Home</a><a href="../#/pass">BMC PASS</a><a href="../#/swap">Swap</a>
-    <a href="../#/staking">Staking</a><a href="../#/burns">IMD Burns</a>
-    <a href="../#/dashboard">Dashboard</a><a href="../#/community">Community</a>
-    <a class="btn ghost" href="./" aria-current="page">MINT BMC PASS</a>
-  </nav>
+ <a class="brand" href="../"><img src="../favicon-gold.svg" width="32" height="32" alt=""><strong>BMC Illuminati</strong></a>
+ <nav aria-label="Main navigation"><a href="../#/pass">Collection</a><a href="../#/staking">Staking</a><a href="../#/dashboard">Dashboard</a><a href="../#/community">Community</a></nav>
 </header>
 <main id="main">
-  <section class="launch-banner" aria-labelledby="launch-title">
-    <span class="eyebrow">ETHEREUM MAINNET · 500 COLLECTIBLES</span>
-    <h1 id="launch-title">BMC PASS — Coming Soon</h1>
-    <p id="launch-description">Explore the collection and connect your wallet. Public minting opens only after the final contract is deployed, verified, reviewed and explicitly approved.</p>
-    <p class="hint">NFT contract: <a id="contract-link">Not deployed — minting disabled</a></p>
-  </section>
-  <section class="wallet card" aria-label="Your wallet">
+ <section class="mint-intro" aria-labelledby="launch-title">
+  <div>
+   <h1 id="launch-title">Mint your BMC Pass</h1>
+   <p id="launch-description">500 Ethereum collectibles, minted by permanently burning BMC.</p>
+   <p class="launch-state"><span aria-hidden="true">◇</span> Pre-launch · Transactions locked</p>
+   <div class="wallet" aria-label="Your wallet">
     <div class="row">
-      <span id="network" class="pill">Wallet not connected</span>
-      <label id="wallet-choice" hidden>Wallet <select id="wallet-provider" aria-label="Choose injected wallet"></select></label>
-      <button id="connect" class="btn" type="button">CONNECT WALLET</button>
-      <button id="disconnect" class="btn ghost" type="button" hidden>Disconnect</button>
-      <button id="switch-network" class="btn ghost" type="button" hidden>Switch to Ethereum Mainnet</button>
+     <label id="wallet-choice" hidden>Wallet <select id="wallet-provider" aria-label="Choose injected wallet"></select></label>
+     <button id="connect" class="btn" type="button">Connect wallet</button>
+     <button id="disconnect" class="btn ghost" type="button" hidden>Disconnect</button>
+     <button id="switch-network" class="btn ghost" type="button" hidden>Switch to Ethereum Mainnet</button>
     </div>
+    <p id="network" class="hint">Wallet not connected</p>
     <p id="account" class="address">No wallet connected</p>
-    <p class="hint">MetaMask and EIP-1193 injected wallets supported. Connecting requests account access only. Never share your seed phrase or private key.</p>
-    <p id="message" role="status" aria-live="polite">Minting is disabled in pre-launch mode.</p>
-  </section>
-  <section class="hero" aria-label="Collection overview">
-    <figure class="hero-art">
-      <img id="legendary" src="https://silver-active-lungfish-941.mypinata.cloud/ipfs/bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u/genesis-01.png" alt="Genesis #1, the Legendary Genesis" width="1024" height="1024">
-      <figcaption class="caption">#1 · Legendary Genesis<br>The first successful mint receives Genesis artwork #1.</figcaption>
-      <p id="hero-art-error" class="error" hidden>Genesis #1 could not be loaded from IPFS. No substitute is shown.</p>
-    </figure>
-    <div>
-      <span class="eyebrow">BMC ILLUMINATI PASS · BMCPASS</span>
-      <h2>Burn BMC.<br>Claim your PASS.</h2>
-      <p>77 Genesis PNG artworks on IPFS. 423 unique Standard artworks rendered fully on-chain as SVG. A collection capped at 500.</p>
-      <div class="hero-stats">
-        <div class="stat"><span>Current mint phase</span><strong id="phase">Pre-launch</strong></div>
-        <div class="stat"><span>Current mint price</span><strong id="price">Not live</strong></div>
-        <div class="stat"><span>NFTs minted / maximum</span><strong id="supply">— / 500</strong></div>
-        <div class="stat"><span>Remaining NFT supply</span><strong id="remaining">—</strong></div>
-        <div class="stat"><span>Mystery passes awaiting reveal</span><strong id="pending-reveals">—</strong></div>
-        <div class="stat"><span>BMC permanently burned by this NFT contract</span><strong id="burned">—</strong></div>
-        <div class="stat"><span>Your BMC balance</span><strong id="balance">Connect wallet</strong></div>
-        <div class="stat"><span>Your BMC allowance to this NFT contract</span><strong id="allowance">Not available</strong></div>
-      </div>
-      <p class="hint" id="stats-note">Minted, remaining supply and burn totals will be read from the actual deployed NFT contract. No live totals are available yet.</p>
-    </div>
-  </section>
-  <section class="mint" aria-label="Mint phases">
-    <article class="card" id="genesis-card">
-      <span class="eyebrow">01 · GENESIS PHASE</span>
-      <h2>First through the gate</h2>
-      <p class="mint-price">1,000,000 <span>BMC / mint</span></p>
-      <p>Token IDs 1–40 mint sequentially. #1 is Legendary Genesis; #2–40 are Early Genesis. Each receives its matching Genesis PNG.</p>
-      <button id="mint-genesis" class="btn" type="button" disabled>Mint Genesis</button>
-      <p class="hint" id="genesis-left">Coming soon · 40 Genesis mints in phase 1.</p>
-    </article>
-    <article class="card" id="mystery-card">
-      <span class="eyebrow">02 · MYSTERY PHASE</span>
-      <h2>Reveal your place</h2>
-      <p class="mint-price">350,000 <span>BMC / mint</span></p>
-      <p>Token IDs 41–500 draw from 37 additional Genesis and 423 Standard outcomes, without replacement. Mystery opens only after all 40 Genesis passes are sold. The mint burns your BMC and issues an unrevealed pass; its outcome is settled afterwards, in mint order, from the hash of the block after the mint block. Nothing in the mint transaction can see or reject the result.</p>
-      <label class="risk-consent"><input id="risk-accepted" type="checkbox"> I understand that block-derived randomness can be manipulated and does not guarantee a fair allocation.</label>
-      <button id="mint-mystery" class="btn" type="button" disabled>Mint Mystery</button>
-      <p class="hint" id="odds">Initial pool: 37 Genesis and 423 Standard. Inventory uniqueness is not a fairness guarantee.</p>
-    </article>
-  </section>
-  <aside class="risk card" aria-labelledby="risk-title">
-    <h2 id="risk-title">Understand Mystery mint risk</h2>
-    <p>Mystery uses on-chain block-derived randomness, <strong>not Chainlink VRF</strong>. It is <strong>not cryptographically manipulation-resistant</strong>. Each pass is settled from the hash of the Ethereum block after its mint block, so the proposer of that block can bias the result, and validators and block builders can influence transaction inclusion and ordering. Because the burn is final before that hash exists, buyers and smart-contract buyers cannot preview, pick or revert an outcome; a reverted reveal changes nothing.</p>
-    <p>Reveals are open to anyone and happen in mint order; this page sends one for you after your mint. The reveal hash stays readable on-chain for about 27 hours (8,191 blocks). If no one reveals a pass in that time it settles as a Standard pass, so delaying a reveal never helps. Unique outcomes without replacement only ensures that artwork is not assigned twice. This is not guaranteed fairness or tamper-proof randomness. BMC burns are permanent; no refunds are provided by the NFT contract.</p>
-  </aside>
-  <section class="card" aria-labelledby="status-title">
-    <h2 id="status-title">Transactions &amp; your NFT</h2>
-    <p class="hint">When live: check balance and allowance → approve the exact price if needed → wait for approval → confirm mint → wait for confirmation → (Mystery only) confirm the reveal once the next block is final. Each step may require ETH for gas.</p>
-    <ul id="txlog" class="txlog" aria-live="polite"><li class="muted">No transactions submitted from this page.</li></ul>
-    <button id="check-pending" class="btn ghost" type="button" hidden>Check pending transaction</button>
-    <button id="reveal-pending" class="btn ghost" type="button" hidden disabled>Reveal pending passes</button>
-    <div id="mint-result" class="nft-result" hidden></div>
-    <div class="row lookup-row">
-      <label for="lookup-id">Look up a minted token</label>
-      <input id="lookup-id" type="number" min="1" max="500" step="1" placeholder="1–500">
-      <button id="lookup" class="btn ghost" type="button" disabled>View NFT</button>
-    </div>
-    <p id="lookup-message" class="hint" role="status"></p>
-    <div id="lookup-result" class="nft-result" hidden></div>
-  </section>
-  <section class="card">
-    <h2>How the burn works</h2>
-    <ul class="faq">
-      <li>The NFT contract calls BMC <code>burnFrom</code> and verifies that both your balance and BMC total supply drop by exactly the mint price. BMC is never transferred to a developer wallet.</li>
-      <li>If allowance is insufficient, this page requests approval for the exact single-mint price. It never requests unlimited approval. An approval alone does not mint or burn.</li>
-      <li>The phase or supply can change while transactions are pending. If minting reverts, its burn rolls back; gas may still be spent and a previous approval may remain. Check any pending transaction before trying again.</li>
-      <li>Genesis artwork and Standard metadata are fixed. The owner's only power is to open minting once after deployment, verification and authorization; there is no pause, close, special mint, price-change, withdrawal or upgrade power. A PASS is a collectible; this page promises no financial return.</li>
-    </ul>
-  </section>
-  <section class="card" aria-labelledby="gallery-title">
-    <h2 id="gallery-title">The Genesis collection</h2>
-    <p class="hint">All 77 Genesis files use the supplied IPFS directory. #1 is Legendary, #2–40 are Early Genesis, and #41–77 are additional Genesis artworks in the Mystery pool. Artwork numbers 41–77 are not assigned to matching token IDs.</p>
-    <p id="artwork-status" class="hint" role="status"></p>
-    <div class="gallery" id="gallery"></div>
-  </section>
+    <p id="message" role="status" aria-live="polite">Connection requests account access only.</p>
+   </div>
+  </div>
+  <figure class="hero-art">
+   <img id="legendary" src="../artwork/genesis/genesis-01.webp" alt="Legendary Genesis artwork #1" width="360" height="360">
+   <figcaption>Genesis #01 <span>Legendary · Immutable IPFS artwork</span></figcaption>
+   <p id="hero-art-error" class="error" hidden>The artwork preview could not load. Use the original IPFS link in the gallery.</p>
+  </figure>
+ </section>
+ <details class="launch-notice">
+  <summary>Why minting is locked</summary>
+  <p>The NFT address in the request differs from the IMD deployment record. This page reads the source-matched IMD deployment below. No approval, mint or reveal is enabled pending address reconciliation, independent review and explicit launch authorization.</p>
+  <dl class="key-values"><div><dt>IMD deployment · Displayed data</dt><dd><a id="contract-link" target="_blank" rel="noopener noreferrer" href="https://etherscan.io/address/0xedd2be808e73bc443bc12aa07586193c193e8d51">0xedd2be808e73bc443bc12aa07586193c193e8d51</a></dd></div><div><dt>Requested address · Not selected</dt><dd><a target="_blank" rel="noopener noreferrer" href="https://etherscan.io/address/0x92789D9bb680a2Db8617270a530E9D0f80b48641">0x92789D9bb680a2Db8617270a530E9D0f80b48641</a></dd></div></dl>
+  <p>The owner must separately authorize <code>openMinting()</code>. It is irreversible and is never called by this site.</p>
+ </details>
+ <section aria-labelledby="state-title">
+  <div class="section-heading"><h2 id="state-title">Collection on Ethereum</h2><button id="refresh-data" type="button" class="btn ghost">Refresh data</button></div>
+  <p id="stats-note" class="hint" role="status">Reading the deployed collection…</p>
+  <div class="hero-stats">
+   <div class="stat"><span>Current phase</span><strong id="phase">Reading…</strong></div>
+   <div class="stat"><span>Contract mint price</span><strong id="price">Unavailable</strong></div>
+   <div class="stat"><span>Minted / Maximum</span><strong id="supply">Unavailable / 500</strong></div>
+   <div class="stat"><span>Passes remaining</span><strong id="remaining">Unavailable</strong></div>
+   <div class="stat"><span>Waiting for reveal</span><strong id="pending-reveals">Unavailable</strong></div>
+   <div class="stat"><span>BMC burned by this Pass contract</span><strong id="burned">Unavailable</strong></div>
+   <div class="stat"><span>Your BMC balance</span><strong id="balance">Connect wallet</strong></div>
+   <div class="stat"><span>Allowance to this Pass contract</span><strong id="allowance">Connect wallet</strong></div>
+  </div>
+ </section>
+ <section class="mint" aria-label="Mint phases">
+  <article class="card" id="genesis-card"><h2>Genesis</h2><p class="phase-label">Token IDs 1–40</p><p class="mint-price">1,000,000 <span>BMC / Pass</span></p><p>Receive the matching Genesis artwork. The first successful mint receives Legendary Genesis #1.</p><button id="mint-genesis" class="btn" type="button" disabled>Mint Genesis</button><p class="hint" id="genesis-left">40 Genesis mints in phase 1. Minting remains locked.</p></article>
+  <article class="card" id="mystery-card"><h2>Mystery</h2><p class="phase-label">Token IDs 41–500</p><p class="mint-price">350,000 <span>BMC / Pass</span></p><p>Burn BMC for an unrevealed Pass. A later reveal assigns artwork from 37 Genesis and 423 Standard outcomes.</p><label class="risk-consent"><input id="risk-accepted" type="checkbox"> I understand that block-derived randomness can be manipulated and does not guarantee a fair allocation.</label><button id="mint-mystery" class="btn" type="button" disabled>Mint Mystery</button><p class="hint" id="odds">Mystery opens after all 40 Genesis mints.</p></article>
+ </section>
+ <section class="card" aria-labelledby="status-title">
+  <h2 id="status-title">Transactions &amp; your NFT</h2>
+  <p class="hint">When authorized: review exact approval → confirm in wallet → review the mint and its irreversible burn → confirm in wallet. Mystery reveal is a separate action. Each transaction requires ETH for gas.</p>
+  <ul id="txlog" class="txlog" aria-live="polite"><li>No transactions submitted from this page.</li></ul>
+  <div class="row"><button id="check-pending" class="btn ghost" type="button" hidden>Check pending transaction</button><button id="reveal-pending" class="btn ghost" type="button" hidden disabled>Reveal pending passes</button></div>
+  <div id="mint-result" class="nft-result" hidden></div>
+  <form id="lookup-form" class="lookup-row"><label for="lookup-id">View a minted Pass</label><div class="row"><input id="lookup-id" name="tokenId" type="number" min="1" max="500" step="1" inputmode="numeric" placeholder="1–500" aria-describedby="lookup-message"><button id="lookup" class="btn ghost" type="submit">View NFT</button></div></form>
+  <p id="lookup-message" class="hint" role="status"></p><div id="lookup-result" class="nft-result" hidden></div>
+ </section>
+ <section class="risk" aria-labelledby="risk-title"><h2 id="risk-title">Understand the burn and reveal</h2>
+  <p>BMC burns are permanent. The contract calls <code>burnFrom</code> and verifies that your balance and total token supply both decrease by the exact price. No BMC is paid to a developer wallet. A failed mint rolls back the burn, but spent gas and a prior approval may remain.</p>
+  <details><summary>Mystery randomness and expiry</summary><p>Mystery uses the hash of the block after minting, not Chainlink VRF. It is <strong>not cryptographically manipulation-resistant</strong>: block proposers can bias outcomes and builders can influence ordering. The burn happens before the outcome exists.</p><p>Anyone may reveal pending Passes in mint order. Press “Reveal pending passes” after the next block is available and review the transaction. If nobody reveals within the 8,191-block history window (roughly 27 hours at 12 seconds per block), a Pass settles as Standard. This is not guaranteed fairness or tamper-proof randomness.</p></details>
+  <details><summary>Permissions and transaction safety</summary><p>The UI requests only exact-price approval, never unlimited approval. An approval does not mint. Every send requires a separate on-page review and wallet confirmation. Account, network, code, phase and balance are checked again before sending. A pending transaction blocks resubmission; check its hash on Etherscan or in wallet activity.</p><p>The reviewed Pass has no privileged mint, price change, withdrawal, pause or upgrade function. The owner's one-way opening power remains separate from this website. Local tests do not replace an independent security review.</p></details>
+ </section>
+ <section class="gallery-section" aria-labelledby="gallery-title"><div class="section-heading"><h2 id="gallery-title">Genesis collection</h2><a href="../#/pass">See Standard artwork</a></div><p class="hint">All 77 authentic artworks. Numbers 41–77 belong to the Mystery inventory and are not matching token IDs. Local previews link to the immutable originals.</p><p id="artwork-status" class="hint" role="status"></p><div class="gallery" id="gallery"></div></section>
 </main>
 <footer>
-  <a href="../">BMC Illuminati home</a>
-  <a id="bmc-link" href="https://etherscan.io/address/0x38224239f2BDae357D47cb864BC533d7f72dF961" target="_blank" rel="noopener noreferrer">BMC token · 0x3822…F961</a>
-  <a href="https://github.com/0xSt3w/launch-1356-project-bmc-illuminati-pass" target="_blank" rel="noopener noreferrer">BMC GitHub</a>
-  <a href="https://imd.fun/" target="_blank" rel="noopener noreferrer">IMD</a>
-  <a href="https://silver-active-lungfish-941.mypinata.cloud/ipfs/bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u/" target="_blank" rel="noopener noreferrer">Genesis on IPFS</a>
+ <a href="../">BMC Illuminati</a><a href="../#/pass">↗ Collection</a><a href="../#/staking">↗ Staking</a>
+ <a id="bmc-link" href="https://etherscan.io/token/0x38224239f2BDae357D47cb864BC533d7f72dF961" target="_blank" rel="noopener noreferrer">↗ Etherscan · BMC</a>
+ <a href="https://github.com/identity-md-launches/launch-1481-bmc-illuminati" target="_blank" rel="noopener noreferrer">↗ GitHub</a>
+ <span>X · Unconfirmed</span><span>Telegram · Unconfirmed</span>
+ <a href="https://silver-active-lungfish-941.mypinata.cloud/ipfs/bafybeihfihwwpev4gkqjuqawgtptsv3ynzsokclo6odsolvoa65aqaac2u/" target="_blank" rel="noopener noreferrer">↗ Originals on IPFS</a>
 </footer>
-<noscript><p class="card">JavaScript is required to connect a wallet. Minting is disabled.</p></noscript>
-<script src="../config.js"></script>
-<script src="../pass-abi.js"></script>
-<script src="../bmc-abi.js"></script>
-<script src="../mint-client.js"></script>
-<script src="../app.js"></script>
+<dialog id="transaction-review" aria-labelledby="review-title" aria-describedby="review-warning">
+ <h2 id="review-title">Review transaction</h2>
+ <dl class="key-values"><div><dt>Network</dt><dd>Ethereum Mainnet · Chain ID 1</dd></div><div><dt>From</dt><dd id="review-from"></dd></div><div><dt>Contract receiving the call</dt><dd id="review-to"></dd></div><div id="review-spender-row"><dt>BMC allowance spender</dt><dd id="review-spender"></dd></div><div><dt>BMC amount</dt><dd id="review-amount"></dd></div><div><dt>ETH sent to contract</dt><dd>0 ETH</dd></div><div><dt>Estimated maximum gas budget</dt><dd id="review-fee"></dd></div></dl>
+ <p id="review-warning">The wallet shows the final fee. Review it before confirming.</p>
+ <div class="row"><button id="review-cancel" type="button" class="btn ghost" autofocus>Cancel</button><button id="review-confirm" type="button" class="btn">Continue to wallet</button></div>
+</dialog>
+<noscript><p>JavaScript is required to connect a wallet. Transactions remain disabled.</p></noscript>
+<script src="../config.js"></script><script src="../pass-abi.js"></script><script src="../bmc-abi.js"></script><script src="../mint-client.js"></script><script src="../platform.js"></script><script src="../app.js"></script>
 </body>
 </html>

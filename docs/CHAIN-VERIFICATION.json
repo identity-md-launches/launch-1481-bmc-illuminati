@@ -1,0 +1,83 @@
+{
+  "chainId": 1,
+  "block": 26186477,
+  "blockHash": "0x0132bc704809b599f9d8806dd905f736119307fc88461c0387ed451c4ab21bcf",
+  "publicRpc": "https://ethereum-rpc.publicnode.com",
+  "sourceRepository": "https://github.com/identity-md-launches/launch-1481-bmc-illuminati",
+  "sourceCommit": "ab734601833e7ef15a83647dcf4c33f3013820ba",
+  "abiCanonicalKeccak": "0xd92a636689a34a9056f502eb75de0e545a6f4074a601612dfbc9d16a8fd572c6",
+  "abiSha256": "f8ef521233c556d40a71a82c7c4fe843523cc6f6303a9093efcd139b929c7a4f",
+  "abiMatchesAttestation": true,
+  "deployments": [
+    {
+      "role": "pinned",
+      "address": "0xedd2be808e73bc443bc12aa07586193c193e8d51",
+      "runtimeBytes": 21458,
+      "runtimeSha256": "64503241c35f6ad4f325d43a73bd7af53f1063222dc15a7244b5b952f56c3673",
+      "matchesLocalBuildWithBmcImmutable": true,
+      "readResults": {
+        "name()": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013424d4320496c6c756d696e617469205061737300000000000000000000000000",
+        "symbol()": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007424d435041535300000000000000000000000000000000000000000000000000",
+        "owner()": "747933094286063838725920776727672751880148369840",
+        "BMC()": "320467477632509517676988159557434305084021143905",
+        "mintingOpen()": "0",
+        "totalMinted()": "0",
+        "remainingSupply()": "500",
+        "totalBurned()": "0",
+        "currentPrice()": "1000000000000000000000000",
+        "pendingReveals()": "0",
+        "MAX_SUPPLY()": "500",
+        "GENESIS_PRICE()": "1000000000000000000000000",
+        "MYSTERY_PRICE()": "350000000000000000000000",
+        "genesisImagesCID()": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003b6261667962656968666968777770657634676b716a7571617767747074737633796e7a736f6b636c6f366f64736f6c766f613635617161616332750000000000"
+      }
+    },
+    {
+      "role": "requested",
+      "address": "0x92789D9bb680a2Db8617270a530E9D0f80b48641",
+      "runtimeBytes": 21499,
+      "runtimeSha256": "b380ee53e2d9b7b5b4238f308f9b8b792dafdb620f8cbe47a50c1e871359a20a",
+      "matchesLocalBuildWithBmcImmutable": false,
+      "readResults": {
+        "name()": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000013424d4320496c6c756d696e617469205061737300000000000000000000000000",
+        "symbol()": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007424d435041535300000000000000000000000000000000000000000000000000",
+        "owner()": "747933094286063838725920776727672751880148369840",
+        "BMC()": "320467477632509517676988159557434305084021143905",
+        "mintingOpen()": "0",
+        "totalMinted()": "0",
+        "remainingSupply()": "500",
+        "totalBurned()": "0",
+        "currentPrice()": "1000000000000000000000000",
+        "pendingReveals()": "0",
+        "MAX_SUPPLY()": "500",
+        "GENESIS_PRICE()": "1000000000000000000000000",
+        "MYSTERY_PRICE()": "350000000000000000000000",
+        "genesisImagesCID()": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003b6261667962656968666968777770657634676b716a7571617767747074737633796e7a736f6b636c6f366f64736f6c766f613635617161616332750000000000"
+      }
+    }
+  ],
+  "etherscanStatus": "HTTP 403 for both NFT addresses and the BMC token; source verification could not be independently confirmed on Etherscan.",
+  "staking": {
+    "repository": "https://github.com/identity-md-launches/launch-1357-project-bmc-illuminati",
+    "record": "https://explorer.imd.fun/jobs/fa117565-998a-4aaa-ad09-233e642d4c1e",
+    "finding": "Source-only repository explicitly says not deployed or independently audited. No verified Mainnet staking address found in the pinned deployment, website configuration or this repository. This is not an exhaustive proof that no third-party staking contract exists."
+  },
+  "socials": {
+    "x": null,
+    "telegram": null,
+    "finding": "Pinned site has null social URLs. A third-party listing suggests a Telegram channel, but no project-owned source authenticated it. No unconfirmed social destination is shipped."
+  },
+  "releaseAuthorized": false,
+  "bmc": {
+    "address": "0x38224239f2BDae357D47cb864BC533d7f72dF961",
+    "runtimeBytes": 2847,
+    "runtimeSha256": "b0ae261c881b8c6da58e46652b6b0ced43844d4cabb3174c6e710f3de2e45976",
+    "sourcify": "https://sourcify.dev/server/v2/contract/1/0x38224239f2BDae357D47cb864BC533d7f72dF961?fields=all",
+    "sourcifyRuntimeMatchedRpc": true,
+    "contract": "BMCToken",
+    "compiler": "0.8.26+commit.8a97fa7a",
+    "sourceSummary": "OpenZeppelin ERC20 + ERC20Burnable, fixed initial supply, no owner, public mint, pause, upgrade, blocklist or transfer fee in the matched source. burnFrom consumes allowance and reduces balance and supply."
+  },
+  "checkedOn": "2026-10-13",
+  "blockTimestamp": 1791929495
+}

@@ -60,7 +60,7 @@ test('offline Anvil: exact approvals, real burnFrom and all 500 real contract mi
    }
    return rpc(method,params);
   }};
-  const client=new API.MintClient(config,BUILD,TOKEN,{storage:new MemoryStorage(),maxPolls:3,pollMs:1});
+  const client=new API.MintClient(config,BUILD,TOKEN,{storage:new MemoryStorage(),maxPolls:3,pollMs:1,confirmTransaction:async()=>true});
   await client.connect(provider);assert.equal(client.state.ready,true);
   await client.mint('genesis');
   assert.equal(client.state.minted.id,1n);assert.match(client.state.minted.metadata.image,/genesis-01.png$/);
@@ -71,7 +71,7 @@ test('offline Anvil: exact approvals, real burnFrom and all 500 real contract mi
    await provider.request({method:'eth_sendTransaction',params:[{from:account,to:API.BMC,data:API.calldata(TOKEN,'approve(address,uint256)',[pass,API.GENESIS])}]});
    await provider.request({method:'eth_sendTransaction',params:[{from:account,to:pass,data:API.calldata(BUILD,'mintGenesis()')}]});
   }
-  await client.mint('mystery');assert.equal(client.state.minted.id,41n);assert.ok(client.state.minted.metadata);
+  await client.mint('mystery');assert.equal(client.state.minted.pending,true);await client.reveal();assert.equal(client.state.minted.id,41n);assert.ok(client.state.minted.metadata);
   assert.equal(client.state.minted.pending,false);assert.equal(sends.length,83);assert.equal(sends[82].to,pass);assert.equal(sends[82].data,API.calldata(BUILD,'reveal(uint256)',[1n]));
   assert.equal(client.state.stats.burned,40350000n*10n**18n);assert.equal(client.state.stats.pending,0n);
   const art=new Set();let genesis=0,standard=0;

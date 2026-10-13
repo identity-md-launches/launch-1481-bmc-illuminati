@@ -5,7 +5,7 @@
     if (actions && !actions.querySelector('[data-bmc-mint-link]')) {
       const link = document.createElement('a');
       link.href = './mint/';
-      link.textContent = 'MINT BMC PASS';
+      link.textContent = 'Mint BMC Pass';
       link.className = 'btn bmc-mint-nav';
       link.setAttribute('data-bmc-mint-link', '');
       actions.prepend(link);

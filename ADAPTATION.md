@@ -1,3 +1,5 @@
+> Historical contract-adaptation record, retained from the prior revision. For the 2026-10-13 website release, read [docs/VALIDATION.md](docs/VALIDATION.md) and [docs/WEBSITE-SECURITY.md](docs/WEBSITE-SECURITY.md). The NFT address is now configured for labeled read-only data; public writes remain locked because the two deployment records disagree. Reveal now requires a separate user action. No contract change or deployment was made by this website task.
+
 # BMC Illuminati Pass adaptation
 
 ## Delivery and scope

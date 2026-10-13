@@ -1,3 +1,5 @@
+> Historical contract-adaptation record, retained from the prior revision. For the 2026-10-13 website release, read [VALIDATION.md](VALIDATION.md) and [WEBSITE-SECURITY.md](WEBSITE-SECURITY.md). The NFT address is now configured for labeled read-only data; public writes remain locked because the two deployment records disagree. Reveal now requires a separate user action. No contract change or deployment was made by this website task.
+
 # Adaptation verification results
 
 Checked locally on 2026-10-12 UTC (2026-10-13 in Europe/Berlin for the final run).

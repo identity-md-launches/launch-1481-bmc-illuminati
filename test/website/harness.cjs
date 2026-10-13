@@ -21,7 +21,7 @@ function str(s) {
   return word(32) + word(hex.length / 2).slice(2) + hex.padEnd(Math.ceil(hex.length / 64) * 64, '0');
 }
 function liveConfig() {
-  return {...CONFIG, MODE:'LIVE', PASS_ADDRESS: PASS, LAUNCH: {...CONFIG.LAUNCH,
+  return {...CONFIG, MODE:'LIVE', DEPLOYMENT_CONFLICT:false, BMC_RUNTIME_SHA256:'', PASS_ADDRESS: PASS, LAUNCH: {...CONFIG.LAUNCH,
     SOURCE_REPOSITORY:'https://example.test/reviewed-source', SOURCE_COMMIT:'a'.repeat(40),
     CONFIRMED_ABI_SHA256:BUILD.abiSha256, REVIEWED_RUNTIME_SHA256:createHash('sha256').update(Buffer.from(CODE.slice(2),'hex')).digest('hex'),
     EXPLORER_VERIFIED:true, SECURITY_FINDINGS_ADDRESSED:true, DEPLOYED_MINT_AND_BURN_VALIDATED:true,
@@ -53,6 +53,7 @@ class Provider extends EventEmitter {
     if(method==='eth_chainId') return this.chain;
     if(method==='wallet_switchEthereumChain'){this.chain=params[0].chainId;this.emit('chainChanged',this.chain);return null;}
     if(method==='eth_getCode') return this.code;
+    if(method==='eth_gasPrice') return '0x3b9aca00';
     if(method==='eth_estimateGas') return '0x60000';
     if(method==='eth_blockNumber') return '0x10';
     if(method==='eth_getBlockByNumber') return {hash:this.reorg?'0x'+'cd'.repeat(32):HASH};
@@ -117,7 +118,7 @@ class Provider extends EventEmitter {
 }
 function fixture(config=liveConfig(), options={}) {
   const provider=new Provider(), events=[], storage=options.storage || new MemoryStorage();
-  const client=new API.MintClient(config, BUILD, TOKEN, {pollMs:1,maxPolls:2,sleep:async()=>{},storage,onTransaction:e=>events.push(e),...options});
+  const client=new API.MintClient({...config,BMC_RUNTIME_SHA256:config.BMC_RUNTIME_SHA256?createHash('sha256').update(Buffer.from(CODE.slice(2),'hex')).digest('hex'):''}, BUILD, TOKEN, {confirmTransaction:async()=>true,pollMs:1,maxPolls:2,sleep:async()=>{},storage,onTransaction:e=>events.push(e),...options});
   return {client,provider,events,storage,config};
 }
 module.exports={API,BUILD,TOKEN,CONFIG,ACCOUNT,OTHER,PASS,CODE,word,str,liveConfig,fixture,Provider,MemoryStorage,ROOT};

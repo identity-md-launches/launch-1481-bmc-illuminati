@@ -1,105 +1,91 @@
-# BMC PASS launch handoff — not authorized to go live
+# Website launch handoff — public transactions remain unauthorized
 
-The delivered configuration is `MODE: "PRE_LAUNCH"`, `PASS_ADDRESS: ""`, with all deployment and
-approval fields unset. This is intentional. Wallet connection requests account access only;
-buttons are disabled in HTML and every write path independently checks the live gate.
+The production configuration is `MODE: "PRE_LAUNCH"`, `DEPLOYMENT_CONFLICT: true` and null staking
+address. All public writes are disabled independently of button styling. This website can be
+published for read-only use without opening minting or staking.
 
-## Required evidence from the requester/deployer
+## Resolve the existing deployment, do not redeploy it
 
-Before activating public minting, obtain the **finalized source repository and immutable revision
-for the chosen block-random Mystery design**, plus its **actual Ethereum Mainnet deployment
-address**. Confirm explicitly whether the adapted source in this submission is the final chosen
-revision. The provided `feature/deterministic-pass` branch is a different design; neither its ABI
-nor its deployment belongs in this interface. The existing BMC ERC-20 is never the NFT address.
+The task supplied NFT `0x92789D9bb680a2Db8617270a530E9D0f80b48641`, while its pinned deployment
+record names `0xedd2be808e73bc443bc12aa07586193c193e8d51`. At block 26186477 the latter exactly
+matched source revision `ab734601833e7ef15a83647dcf4c33f3013820ba`; the requested address did not.
+Both reported the same BMC token and owner, closed minting, and zero minted tokens. The UI labels
+read-only data as belonging to the pinned deployment. [CHAIN-VERIFICATION.json](CHAIN-VERIFICATION.json)
+records hashes and block evidence. This discrepancy requires the project's authoritative resolution.
 
-The responsible reviewer/deployer must complete all of these before enabling the interface:
+Before any future activation, reconcile the address with the finalized reviewed source and immutable
+compiler output, independently review contract and frontend findings, establish NFT explorer source
+verification, validate the selected deployed mint/burn behavior, and obtain explicit public-mint
+authorization. A local fork rehearsal is evidence for review, not authorization. Never substitute
+an observed runtime hash for a comparison against reviewed compiler output with actual immutables.
+The source of the requested address was not established in this assignment.
 
-1. Independently review the finalized source, constructor arguments and compiled artifact. Resolve
-   security findings; explicitly acknowledge the block-randomness manipulation/receiver rollback
-   risk. Tests and the contributor's notes do not replace independent review.
-2. Separately authorize and perform deployment through the factory on chain 1 with zero ETH,
-   `initialOwner = $owner` (the specified owner) and the existing BMC token address. No worker
-   deployment, token permission change or VRF subscription is required or authorized here.
-3. Verify the final source on Etherscan and confirm the deployed address belongs to
-   `BMCIlluminatiPass`, has no proxy, uses the intended owner and BMC, and exposes the intended ABI.
-4. Compare every deployed runtime byte against the reviewed compiler output with the **actual
-   constructor immutables substituted**. Use the project's unmodified compiler configuration.
-   Do not derive trust merely by hashing whatever code happens to be at the supplied address.
-   After that comparison, record SHA-256 of the raw deployed runtime bytes (not the hex text).
-5. Validate minting/burning against that deployed contract, including exact allowance, exact BMC
-   supply/balance decreases, phase boundary, minted NFT metadata and sold-out behavior. A fork of
-   the actual deployment permits rehearsals without automatically spending mainnet funds. Record
-   deployment address, chain, block and test evidence. The development tests here do not validate
-   any future deployment address.
-6. Obtain the requester's explicit **public-mint authorization** and record its durable reference.
-7. Only then, the owner (`0x83027AD9d0D5374335086c539dADD1db983441B0`) sends `openMinting()` once.
+The owner must separately authorize and send the irreversible `openMinting()` transaction after
+security review. No website handler calls it. Once opened, the contract cannot close or pause minting;
+the frontend gate is not on-chain access control. This assignment deploys nothing and grants no
+owner authorization. Do not rerun a deployment script to resolve an address disagreement.
 
-On Ethereum Mainnet the contract is deployed **closed**: `mintingOpen()` is false and both mint
-functions revert `MintingNotOpen()` until the owner's one-way `openMinting()` call, so nobody can
-take Legendary #1 while the steps above are in progress. There is no pause, close or restrict
-function afterwards. Step 5 can be rehearsed on a fork of the real deployment by impersonating the
-owner to open it there; mainnet ids are only consumed once the owner opens the real contract.
-The website's LIVE gate is the second layer, not on-chain access control.
+## Configuration evidence for a future approved release
 
-Mystery passes are settled by a separate `reveal(maxCount)` call from the hash of the block after
-the mint block, in mint order; anyone may call it and the mint page sends one for the buyer. The
-hash is readable for 8,191 blocks (about 27 hours, via EIP-2935); a pass nobody reveals in that
-window settles as Standard. Operators should run a periodic `reveal` keeper (any account, any
-gas-paying wallet) so that buyers whose page closed are settled from their reveal hash.
-
-## Configuration after all prerequisites
-
-In `website/config.js`, set `PASS_ADDRESS` to the confirmed NFT address and `MODE` to `LIVE` only
-as part of the approved release. Fill every `LAUNCH` field:
-
-| Field | Required evidence |
+| Field in `website/config.js` | Release requirement |
 | --- | --- |
-| `DESIGN` | `block-random-v1`, matching the reviewed implementation. |
-| `SOURCE_REPOSITORY` | The finalized source repository URL obtained from the requester. |
-| `SOURCE_COMMIT` | Its exact 40-hex revision; do not invent one. |
-| `CONFIRMED_ABI_SHA256` | Hash of the confirmed ABI, matching the generated build file. |
-| `REVIEWED_RUNTIME_SHA256` | SHA-256 of the reviewed runtime after the byte-for-byte comparison above. |
-| `EXPLORER_VERIFIED` | True only after successful source verification. |
-| `SECURITY_FINDINGS_ADDRESSED` | True only after review is complete and its findings are addressed. |
-| `DEPLOYED_MINT_AND_BURN_VALIDATED` | True only after the actual deployment is validated. |
-| `PUBLIC_MINT_AUTHORIZATION` | Reference to the requester's explicit authorization. |
+| `PASS_ADDRESS` / `REQUESTED_PASS_ADDRESS` / `DEPLOYMENT_CONFLICT` | Authoritative reconciliation; consistent displayed addresses and all read/write pins. |
+| `MODE` | Remains `PRE_LAUNCH` until the complete release is approved. |
+| `READ_RUNTIME_SHA256` / `BMC_RUNTIME_SHA256` | Reviewed deployed bytecode, raw-byte SHA-256, independently reproduced. |
+| `LAUNCH.DESIGN` | `block-random-v1` only when that exact source is selected and reviewed. |
+| `SOURCE_REPOSITORY`, `SOURCE_COMMIT` | Exact source repository and immutable revision for the selected deployment. |
+| `CONFIRMED_ABI_SHA256` | Canonical sorted ABI JSON SHA-256 matching generated files and the deployment. |
+| `REVIEWED_RUNTIME_SHA256` | Exact runtime match after substituting constructor immutables, not only an address hash. |
+| `EXPLORER_VERIFIED` | Verified source established; currently false because Etherscan access returned 403. |
+| `SECURITY_FINDINGS_ADDRESSED` | Independent review and disposition of all applicable findings; currently false. |
+| `DEPLOYED_MINT_AND_BURN_VALIDATED` | Reviewer acceptance of tests for the selected actual deployment; currently false. |
+| `PUBLIC_MINT_AUTHORIZATION` | Durable reference to the requester's explicit release authorization; currently empty. |
 
-If finalized source differs, regenerate the ABI with `forge build` and
-`python3 script/export_website_abi.py`, review the interface compatibility and rerun the tests.
-ABI hashes use Python JSON serialization with sorted keys, no spaces (`separators=(",", ":")`)
-and SHA-256 of the resulting UTF-8 text. Generated files record this hash. Keep the ABI in the
-release; there is no CDN or runtime ABI download.
+Regenerate ABIs only if the approved source differs, then review compatibility and rerun the build,
+wallet simulations, full-mint integration, fork tests, browser tests and static analysis. Never change
+protected build/dependency files or production contracts as part of this website assignment.
 
-`mint-client.js` verifies runtime code, BMC address, decimals, collection name/symbol, ERC-721
-support, CID, supply cap and fixed prices before allowing a mint. It reads actual supply and burn
-stats at one block, rechecks the account/chain before each send, simulates the transaction and
-requests exact approval only when allowance is insufficient. It awaits two canonical block
-confirmations before continuing after approval. It rechecks phase, balance, allowance and code
-again before minting, then obtains the minted ID from the NFT contract's `Transfer` event.
+## Transaction behavior
 
-## Hosting and operations
+Every approval, mint and reveal displays Ethereum, sender, recipient, exact BMC action/value and a
+conservative gas-cost estimate before asking the wallet. The wallet controls the actual fee. An
+approval grants only one mint price; existing sufficient allowance is reused. A separate review is
+required before minting; canceling it leaves any previously confirmed approval in place. No signature
+API or unlimited approval is used. Metadata is validated and rendered as text or an image.
 
-- Publish the whole `website/` tree over HTTPS, keeping `/` and its original hash routes intact.
-  `/mint` must resolve to `mint/index.html` (a directory redirect to `/mint/` is fine). Host all the
-  checked-in assets; do not load the original app's assets from an unrelated live origin.
-- The new page uses the selected injected wallet for Ethereum reads. No RPC secret, seed phrase,
-  private key or service key belongs in site configuration. `crypto.subtle` needs HTTPS or localhost.
-- The original published home application still shows its pre-launch informational copy. It is
-  deliberately preserved. If public minting is later authorized, coordinate an authorized update
-  of those original status labels using its editable source; changing mint config does not rewrite
-  that original application.
-- Keep the Genesis directory pinned. `script/verify_genesis.py` fetches all expected files and
-  fails if any is absent or invalid. The browser shows failed artwork explicitly and never swaps
-  in a different image. A successful check on one date is not a future availability guarantee.
-- A pending transaction remains locked against duplicate submission; its hash is retained in
-  browser storage when available. Rechecking never automatically sends a mint after an approval.
-  If a wallet replaces or cancels a transaction, use its activity view/Etherscan to identify the
-  replacement: this version deliberately cannot infer a replacement hash and never auto-resubmits.
-  Do not clear a pending record while its outcome is unknown. If local storage is unavailable or
-  the page closes before a hash returns, consult wallet activity before attempting another mint.
-- A wallet-side rejection stops the flow. A reverted mint rolls back its burn, but gas can be spent
-  and an earlier successful approval can remain. The interface does not revoke token allowances
-  or disconnect permissions automatically.
+Mystery mints burn first and create a pending pass. A visitor must separately request and confirm
+`reveal(maxCount)`, which settles pending passes in mint order and burns no BMC. This client limits
+one reveal to 50 entries. Anyone can reveal; no automatic keeper is installed. The block-hash draw
+is manipulable by block producers and must not be described as guaranteed or cryptographically fair.
+The 8,191-block history window is approximately 27 hours at 12 seconds per block; late settlement
+falls back to Standard according to the contract, subject to its inventory rules.
 
-No deployment, hosted-site publication, wallet signature, token permission change, Chainlink
-subscription or paid job was executed by this assignment.
+The client persists a submission lock before opening the wallet, then stores the returned hash.
+Known receipts require two canonical confirmations. A rejection releases the pending request; a
+lost response remains locked. Rechecking never automatically continues an approval into a mint.
+Unknown, replaced or dropped transactions require wallet activity/Etherscan reconciliation; the
+client cannot infer replacement hashes. Clearing storage without resolving the outcome can defeat
+that local protection. Interface disconnect does not revoke wallet permissions or allowances.
+
+## Staking and community
+
+`STAKING.address` is null and controls are disabled. The discovered repository states source-only,
+undeployed work. A future integration needs an authenticated Mainnet address and matching source/ABI,
+real BMC token binding, funded reward accounting, administrative and withdrawal/lock analysis, and
+independent review. No configuration toggle alone supplies that missing integration. No yield,
+reward balance or unlock date is invented. X/Telegram also require project-owner authentication
+before links are added; GitHub and Etherscan are already linked.
+
+## Static publication
+
+Rebuild and submit the entire `dist/` with source and lockfile. The existing IMD publishing process
+pins the committed export; no signing account, private configuration or direct publishing command
+is needed by this worker. Serve over HTTPS. Both entry pages ship a restrictive script CSP and use
+relative assets, including under a gateway subpath. CSP `frame-ancestors` requires an HTTP header
+and cannot be enforced by the HTML meta policy; the hosting operator can supply it. The meta policy
+omits `upgrade-insecure-requests` so WebKit localhost preview works; production relative assets
+inherit HTTPS and every configured external URL is HTTPS.
+
+Keep the original Genesis CID pinned. Local previews remain available offline, but full-size IPFS
+availability is an external dependency. No analytics, private key, seed phrase, service credential
+or wallet-signing backend belongs in this static export.

@@ -1,4 +1,2 @@
-/* Scoped addition only; the published website styles remain unchanged. */
-.bmc-mint-nav { background: #d4af37; color: #080809; border: 1px solid #efd779; white-space: nowrap; font-size: .75rem; font-weight: 800; padding: .65rem .8rem; }
-.bmc-mint-nav:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-@media (max-width: 440px) { .header-inner { flex-wrap: wrap; } .header-actions { margin-inline-start: auto; } }
+.bmc-mint-nav { background:#d4af37; color:#090909; white-space:nowrap; font-size:14px; font-weight:600; }
+.bmc-mint-nav:focus-visible { outline:2px solid #fff1b0; outline-offset:4px; }

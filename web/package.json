@@ -1,0 +1,16 @@
+{
+  "name": "bmc-illuminati-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "preview": "node scripts/preview.mjs",
+    "test": "node --test ../test/website/*.test.cjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.11",
+    "typescript": "5.9.3"
+  }
+}
