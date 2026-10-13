@@ -113,6 +113,14 @@ with `script/optimize_artwork.py`, not to build or run the website.
 
 ## Validation
 
+The review revision fixes header/mobile-menu wallet errors, clarifies the Genesis fallback after
+Mystery expiry, and starts the planned-slot preview at eight while retaining all 500 slots.
+Revision-specific reproduction evidence, current checks and limitations are recorded at the start
+of [docs/VALIDATION.md](docs/VALIDATION.md). Build and preview commands above remain unchanged.
+Run `forge build --offline` before `node --test test/website/*.test.cjs`: the existing local Anvil
+integration requires the generated contract artifacts. Browser regressions are part of
+`test/website/browser-validation.mjs`, using the external Playwright setup described in validation.
+
 The current results and limitations are in [docs/VALIDATION.md](docs/VALIDATION.md); the implemented
 design and Better Interface review are in [DESIGN.md](DESIGN.md). Checks actually performed include:
 

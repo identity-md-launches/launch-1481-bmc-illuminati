@@ -110,6 +110,9 @@ function CommunityLinks({ expanded = false, compact = false } = {}) {
 function WalletControls({ compact = false, quiet = false } = {}) {
   const s = usePlatform();
   const [provider, setProvider] = ne.useState("0");
+  const message =
+    s.wallet.message ||
+    (!compact && !quiet ? "Connection requests account access only." : "");
   return h(
     "div",
     { className: "wallet-controls" },
@@ -179,13 +182,7 @@ function WalletControls({ compact = false, quiet = false } = {}) {
             s.connecting ? "Connecting…" : "Connect wallet",
           ),
         ),
-    !compact && !quiet
-      ? h(
-          "p",
-          { className: "wallet-message", role: "status" },
-          s.wallet.message || "Connection requests account access only.",
-        )
-      : null,
+    h("p", { className: "wallet-message", role: "status" }, message),
   );
 }
 function ReadStatus() {
@@ -2362,7 +2359,7 @@ const fx = Array.from({ length: Le.total }, (a, l) => ({
     n: l + 1,
     tier: ox(l + 1),
   })),
-  Mu = 48;
+  Mu = 8;
 function dx({ slot: a }) {
   const l =
       a.tier === "legendary"

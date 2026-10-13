@@ -4,6 +4,86 @@ All results below are checks actually run by the implementing contributor. They 
 independent audit authority. Public funds remain disabled in the delivered configuration. No live
 mint, token approval, reveal, staking transaction, contract deployment or hosting mutation was sent.
 
+## Review revision: three findings evaluated
+
+This section records checks rerun for the bounded review revision. The original implementation
+report below is retained as historical evidence; its live-chain/fork, ABI and Slither results were
+not re-established by this revision. Contracts, launch gates, addresses, build configuration,
+dependencies, lockfiles and artwork are unchanged. No public transaction or publication was sent.
+
+### Reproduction and disposition
+
+| Finding | Reproduction before changes | Fix and verification |
+| --- | --- | --- |
+| `2f25735c…` — hidden header/menu wallet errors | Chromium at 390 and 1440: both absent provider and an in-page EIP-1193 rejection with code 4001 populated `BMCPlatform.snapshot().wallet.message`, while `document.body.innerText` omitted the message. | `website/site.js:113` now makes only the default account-access hint optional. `website/site.js:185` keeps a persistent `role="status"` region next to every wallet control. `website/platform.css:286` clips only the empty region; `:294` bounds desktop message width to 24ch. Missing-wallet and rejection text are visible, wrap without clipping, persist on menu reopen and clear on successful retry in Chromium and WebKit. |
+| `34c6e0c3…` — incomplete Mystery expiry disclosure | Expanded mint-page disclosure promised Standard unconditionally. The existing `test_ExpiredWindowWithOnlyGenesisLeftStillSettles` passed: 423 expired Mystery Passes settle as Standard, then 37 as Genesis. | `website/mint/index.html:84` now describes Standard when inventory is available and the Genesis fallback otherwise, retaining the 8,191-block window and manipulation warning. Both engines render the expanded disclosure correctly. No contract edit. |
+| `5914595d…` — excessive initial planned slots | Chromium at 390: 48 allocation cards, 5184.5px grid height. | `website/site.js:2362` changes the existing page-size constant to 8. Grid height is 850.75px in Chromium and 848px in WebKit at 390. Tests load all 500 slots, verify the final item and exhausted Show more button, and exercise all four rarity filters and their reset behavior. Real artwork tabs and loading remain separate and pass. |
+
+Full finding IDs and dispositions are supplied in the required repository-root `.imd-responses.json`
+(the worker consumes that response file during submission).
+
+### Checks rerun on the revision
+
+Build tools were installed with `npm ci` from unchanged `web/package.json` and
+`web/package-lock.json` under `/tmp/bmc-revision-c2884bcc/build`. Optional Playwright 1.56.1 and its
+browsers were installed under `/tmp/bmc-revision-c2884bcc/`, outside the submission.
+
+| Command / check | Actual result |
+| --- | --- |
+| `BMC_ESBUILD=/tmp/bmc-revision-c2884bcc/build/node_modules/esbuild/lib/main.js node web/scripts/build.mjs` | PASS; production export is 1,823,072 bytes. Source/export mint HTML and platform CSS are identical; runtime config and ABI copies are unchanged. |
+| `/tmp/bmc-revision-c2884bcc/build/node_modules/.bin/tsc --noEmit -p web/tsconfig.json` | PASS; strict TypeScript service check. Plain JS component behavior is covered by the build and browser tests. |
+| `forge test --offline --out /tmp/bmc-revision-c2884bcc/forge-out --cache-path /tmp/bmc-revision-c2884bcc/forge-cache --match-test test_ExpiredWindowWithOnlyGenesisLeftStillSettles -vv` | PASS: 1 test, no failures/skips. Reproduces the reviewed contract's expiry behavior, not public-chain transactions. |
+| `forge build --offline` then `node --test test/website/*.test.cjs` | PASS: 43 Node tests, no failures/skips, 44.72 seconds. An initial run lacked the required `out/MockBMC.sol/MockBMC.json`; the configured offline build supplied it and the complete rerun passed. |
+| `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s test/tools -p 'test_*.py'` | PASS: 3 tests. |
+| `test/website/browser-validation.mjs` with Chromium and WebKit | PASS in separate completed runs; no unexpected page script, console or local-resource errors. New header/menu cases cover 320/390/768/1250/1440px with absent providers, code-4001 refusals, retry, menu reopen and disconnect; no signature or transaction method is invoked. Existing seven-route responsiveness, keyboard navigation, artwork, gated staking, account/network events, RPC outage and mock transaction-review flows also pass. |
+| `PLAYWRIGHT_BROWSERS_PATH=/tmp/bmc-revision-c2884bcc/browsers IMD_PLAYWRIGHT=/tmp/bmc-revision-c2884bcc/browser/node_modules/playwright/index.mjs node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste` | PASS: 16/16. Entry-page render/share metadata/contrast/typography/layout checks pass at 320/390/1440. The first 390px screen was inspected and contains the product, mint action and genuine artwork. |
+| `git diff --check` and submission-path review | PASS; changes limited to the three affected website files, their generated export copies, the browser regression suite, documentation and finding responses. No ignore-file, protected-file, dependency or submodule change. Prospective submitted files total about 7.16 MB, below the 8,388,608-byte limit. |
+
+Browser reproduction after installing Playwright and its host libraries uses the existing command:
+
+```sh
+PLAYWRIGHT_BROWSERS_PATH=/tmp/bmc-revision-c2884bcc/browsers \
+BMC_PLAYWRIGHT=/tmp/bmc-revision-c2884bcc/browser/node_modules/playwright/index.mjs \
+BMC_TEST_WEBKIT=1 node test/website/browser-validation.mjs
+```
+
+On this worker, WebKit host libraries were initially missing. Distribution packages were extracted
+under `/tmp/bmc-revision-c2884bcc/syslibs`, and the temporary downloaded MiniBrowser wrappers were
+adjusted to retain `LD_LIBRARY_PATH` pointing to those libraries. No repository or system dependency
+was changed. A preliminary WebKit run was interrupted; the completed WebKit-only rerun passed all
+checks. Browser-process Mesa/automation diagnostics do not appear as page console/resource errors.
+That worker-specific rerun additionally set
+`LD_LIBRARY_PATH=/tmp/bmc-revision-c2884bcc/syslibs/usr/lib/x86_64-linux-gnu` and `BMC_BROWSER=webkit`.
+
+### Better Interface coverage for the changed surfaces
+
+The pinned workflow, all six core domains and documentation guidance were consulted. No new theme,
+font, visual asset, route or financial behavior was introduced. `DESIGN.md` documents final behavior.
+
+| Domain | Review and result |
+| --- | --- |
+| Accessibility | Repaired the missing live feedback in `website/site.js:185`; browser tests assert the same status element survives message updates, errors are visible beside the active controls, menu reopening preserves feedback, and retry remains usable. Existing keyboard/menu/dialog checks pass. Actual screen-reader announcements are not verified. |
+| Layout | `website/platform.css:286` keeps empty statuses out of the flow; `:294` bounds populated header text. No overflow or message clipping at the five tested error-state widths in either engine. Eight initial planned slots substantially shorten the mobile page without removing filters or inventory. |
+| Writing | Preserved actionable missing-wallet/refusal messages and the optional default hint. Corrected the materially incomplete expiry sentence at `website/mint/index.html:84` against the existing contract test; manipulation and permanent-burn warnings remain. |
+| Typography | Reused 14px secondary-text styling and existing line height, natural case and wrapping for status messages. Error-state screenshots inspected at 390/1440 in both engines. Entry probe passes the existing type scale/family/weight checks. |
+| Colors | Reused `--color-text-secondary` over the existing black header/menu surfaces; no new color or color-only status cue. Entry-page rendered contrast probe passes; this is not an exhaustive contrast audit of all states/images. |
+| UI | Persistent feedback, absent-wallet recovery instructions, rejection/retry, menu reopen and disconnect exercised with no sends. All 500 slots can still be progressively displayed; all rarity filters reset correctly. Existing PRE_LAUNCH and unverified-staking controls remain disabled. |
+
+Screenshots were generated under `test/scratch/browser/` and `test/scratch/taste/shots/`. Inspected
+captures include the 390px entry screen, mobile and desktop wallet failures in both engines,
+planned-slot preview and expanded expiry disclosure. Scratch evidence is not shipped.
+
+The browser wallet/RPC responses are controlled fixtures; no physical MetaMask/mobile device,
+assistive-technology session, native zoom or new live-contract audit was performed. The existing
+suite checks 200% CSS text enlargement and RTL layout only. X/Telegram confirmation, deployment
+reconciliation, verified staking and independent public-release approval remain outstanding as
+recorded below. These worker checks provide regression evidence, not a security certification.
+
+## Original implementation results (retained)
+
+The following sections describe the accepted implementation before this bounded revision. Where
+numbers differ, the revision results above describe the current export and tests.
+
 ## Build and integrity
 
 | Check | Actual result |

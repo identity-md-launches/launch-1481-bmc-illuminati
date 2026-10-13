@@ -85,13 +85,13 @@ honor safe-area bottom spacing. Root, mint and six hash routes were checked at 3
 | Component | Implemented behavior |
 | --- | --- |
 | Navigation | Skip link first in keyboard order; current route exposed; mobile button has expanded state, Escape closes and restores focus. Route changes focus the main region, not initial load. |
-| Wallet controls | Explicit Connect, wallet selection, address/network, Switch to Ethereum, interface Disconnect; unavailable wallet and rejected request use understandable status text. |
+| Wallet controls | Explicit Connect, wallet selection, address/network, Switch to Ethereum, interface Disconnect. Every variant keeps a persistent `role="status"` region beside its controls; compact/quiet variants omit only the default account-access hint. Nonempty wallet messages always display. The empty region is visually clipped without taking layout space; desktop header messages wrap within 24ch using the existing 14px secondary-text token. |
 | Deployment disclosure | Names both actual addresses and labels the source-matched read-only deployment. Public transaction lock is stated next to the product/action. |
 | Collection statistics | Loading, live block-tagged read, unavailable/retry and closed/sold-out states. No zero substituted for a failed read. |
-| Artwork gallery | Real local Genesis previews, Standard SVG tab, eight-item incremental loading, original links and image errors; old slot diagram remains explicitly illustrative. |
+| Artwork gallery | Real local Genesis previews, Standard SVG tab, eight initial previews, then up to twelve more per action, original links and image errors. The separate planned-slot diagram remains explicitly illustrative, starts at eight slots, adds eight per action and resets to eight when a rarity filter changes; all 500 slots remain accessible. |
 | Staking form | Labeled decimal amount, exact-amount intent, available wallet balance and inline invalid-amount message; all money actions disabled with an adjacent reason. Unknown position/rewards/unlock are unavailable. |
 | Dashboard | Read-only BMC/ETH/NFT balances, bounded ownership search and per-token lookup links; account changes discard stale owned-token results. |
-| Mint flow | Distinct Genesis/Mystery actions, current price and remaining supply; Mystery risk acknowledgement; separate reveal action. Initial HTML and code both enforce PRE_LAUNCH. |
+| Mint flow | Distinct Genesis/Mystery actions, current price and remaining supply; Mystery risk acknowledgement; separate reveal action. Expiry disclosure explains that reveal selects remaining Standard inventory first, then Genesis if no Standard remains, and retains the manipulation warning. Initial HTML and code both enforce PRE_LAUNCH. |
 | Transaction review | Native modal dialog, default focus on Cancel, Escape/cancel with focus return, sender/recipient/spender/amount/estimated fee, separate approval and mint confirmations. Pending/rejected/reverted/unknown outcomes are explicit. |
 | Transaction status | Etherscan links for known hashes, two-confirmation progress, persisted pending lock, manual recheck without automatic resend. |
 | Community | Confirmed GitHub/Etherscan plus collection/staking navigation; X and Telegram shown as unconfirmed text with icons, not invented links. |
@@ -108,6 +108,11 @@ nonessential animation and smooth scrolling. Nothing autoplays on the landing sc
 The pinned guide was consulted during implementation, including all six domains and its documentation
 workflow. Applicable findings were repaired and checked again. Full validation commands, source
 locations and limitations are in [docs/VALIDATION.md](docs/VALIDATION.md).
+
+The review revision keeps the existing tokens, typography, breakpoints and artwork. Its changes are
+limited to visible wallet feedback, accurate expiry wording and a shorter planned-slot preview.
+The revised 390px allocation grid measures 850.75px in Chromium, down from 5184.5px. Browser status
+semantics were checked, but actual screen-reader announcements remain unverified.
 
 | Domain | Applied review and outcome |
 | --- | --- |

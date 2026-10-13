@@ -229,10 +229,72 @@ async function shot(page, name) {
   await page.screenshot({ path: filename, fullPage: false });
   report.screenshots.push(path.relative(root, filename));
 }
+async function walletFeedback(browser, name) {
+  for (const width of [320, 390, 768, 1250, 1440]) {
+    for (const wallet of [false, true]) {
+      const { page, provider, errors } = await configuredPage(browser, {
+        width,
+        wallet,
+      });
+      if (wallet)
+        await page.addInitScript(() => {
+          // Reject inside the page so Playwright's binding does not discard code 4001.
+          const request = window.ethereum.request;
+          window.rejectConnection = true;
+          window.ethereum.request = (args) =>
+            window.rejectConnection && args.method === "eth_requestAccounts"
+              ? Promise.reject(Object.assign(new Error("User rejected"), { code: 4001 }))
+              : request(args);
+        });
+      await page.goto(base + "#/pass");
+      await readReady(page);
+      const mobile = width <= 700;
+      if (mobile) await page.getByRole("button", { name: "Open menu" }).click();
+      const control = page.locator(mobile ? "#mobile-nav .wallet-controls" : ".header-wallet .wallet-controls");
+      const status = control.getByRole("status");
+      const region = await status.elementHandle();
+      assert.equal(await status.textContent(), "", "compact/quiet mode omits only the default hint");
+      await control.getByRole("button", { name: "Connect wallet", exact: true }).click();
+      const message = wallet
+        ? "Request rejected in your wallet. No further transaction was sent."
+        : "No injected wallet found. Open this page in MetaMask or another EIP-1193 wallet browser.";
+      await page.waitForFunction((message) => window.BMCPlatform.snapshot().wallet.message === message, message);
+      assert.equal(await status.innerText(), message);
+      assert.ok(await status.isVisible(), `${name} ${width}: wallet error is visible beside its control`);
+      assert.ok((await page.locator("body").innerText()).includes(message));
+      assert.ok(await region.evaluate((el) => el.isConnected), "live region persists across the update");
+      assert.ok(await status.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1), "error text wraps without clipping");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${name} ${width}: no overflow after wallet error`);
+      if ([390, 1440].includes(width)) {
+        await status.scrollIntoViewIfNeeded();
+        await shot(page, `${name}-wallet-${wallet ? "rejected" : "missing"}-${width}`);
+      }
+      if (mobile) {
+        await page.getByRole("button", { name: "Close menu" }).click();
+        await page.getByRole("button", { name: "Open menu" }).click();
+        assert.equal(await status.innerText(), message, "reopening the menu retains the error");
+      }
+      if (wallet) {
+        await page.evaluate(() => { window.rejectConnection = false; });
+        await control.getByRole("button", { name: "Connect wallet", exact: true }).click();
+        await page.waitForFunction(() => window.BMCPlatform.snapshot().wallet.account !== null && !window.BMCPlatform.snapshot().connecting);
+        assert.equal(await control.getByRole("button", { name: "Disconnect", exact: true }).isVisible(), true);
+        assert.ok(!(await status.innerText()).includes("Request rejected"), "retry clears the old refusal");
+        await control.getByRole("button", { name: "Disconnect", exact: true }).click();
+      }
+      assert.equal(provider.sent.length, 0);
+      assert.equal(provider.calls.some(({ method }) => /sign|sendTransaction/i.test(method)), false);
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
+  }
+  report.checks.push(`${name}: collection header/menu show missing-wallet and code-4001 errors at 320/390/768/1250/1440; persistent role=status, wrapping, menu reopen, successful retry/disconnect, no signing or sends.`);
+}
 async function run(engine, name) {
   const browser = await engine.launch({ headless: true });
   report.engines.push(name);
   try {
+    await walletFeedback(browser, name);
     const { page, provider, errors } = await configuredPage(browser);
     await page.goto(base);
     try {
@@ -319,6 +381,25 @@ async function run(engine, name) {
     await page.getByRole("button", { name: "Genesis · 77" }).click();
     assert.equal(await page.locator(".actual-gallery img").count(), 8);
     await shot(page, `${name}-collection-390`);
+    const slots = page.locator(".gallery > li");
+    assert.equal(await slots.count(), 8);
+    assert.ok(await page.getByRole("status").filter({ hasText: "Showing 8 of 500 slots" }).isVisible());
+    const initialHeight = await page.locator(".gallery").evaluate((el) => el.getBoundingClientRect().height);
+    assert.ok(initialHeight < 1000, "mobile allocation preview stays short");
+    await page.getByRole("heading", { name: "Planned token slots" }).scrollIntoViewIfNeeded();
+    await shot(page, `${name}-planned-slots-390`);
+    for (let count = 8; count < 500; count += 8) {
+      await page.getByRole("button", { name: /^Show \d+ more$/ }).click();
+      assert.equal(await slots.count(), Math.min(count + 8, 500));
+    }
+    assert.match(await slots.last().innerText(), /#500/);
+    assert.equal(await page.getByRole("button", { name: /^Show \d+ more$/ }).count(), 0);
+    for (const [filter, count, first] of [["Legendary #1", 1, "#1"], ["Early Genesis", 8, "#2"], ["Mystery (pending reveal)", 8, "#41"], ["All 500", 8, "#1"]]) {
+      await page.getByRole("button", { name: filter, exact: true }).click();
+      assert.equal(await slots.count(), count);
+      assert.equal(await slots.first().locator("strong").textContent(), first);
+    }
+    report.checks.push(`${name}: planned slots start at 8 (${initialHeight}px at 390), all 500 load, rarity filters reset the preview, artwork gallery remains independent.`);
     await page.goto(base + "#/staking");
     await page.getByLabel("Amount in BMC").fill("12.5");
     assert.equal(
@@ -347,6 +428,14 @@ async function run(engine, name) {
     await shot(page, `${name}-staking-390`);
     await page.goto(base + "mint/");
     await readReady(page);
+    const expiry = page.locator("details").filter({ has: page.getByText("Mystery randomness and expiry", { exact: true }) });
+    await expiry.locator("summary").click();
+    const disclosure = await expiry.innerText();
+    assert.match(disclosure, /remaining Standard outcome if available; otherwise it selects from the remaining Genesis inventory/);
+    assert.match(disclosure, /not cryptographically manipulation-resistant/);
+    assert.match(disclosure, /8,191-block history window/);
+    await shot(page, `${name}-mystery-expiry-390`);
+    await expiry.locator("summary").click();
     assert.equal(await page.locator("#mint-genesis").isDisabled(), true);
     assert.equal(await page.locator("#mint-mystery").isDisabled(), true);
     provider.reject = "connect";
